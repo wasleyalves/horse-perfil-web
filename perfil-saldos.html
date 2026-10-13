@@ -385,14 +385,25 @@
         .join('');
     }
 
+    // ===== Ordena por Cor e, dentro da cor, por Tamanho (numérico) =====
+    function ordenarPorCorTamanho(a, b) {
+      const va = valoresSaldo(a);
+      const vb = valoresSaldo(b);
+      const corA = normalizar(va.cor);
+      const corB = normalizar(vb.cor);
+      if (corA !== corB) return corA.localeCompare(corB, 'pt-BR');
+      return normalizar(va.tamanho).localeCompare(normalizar(vb.tamanho), 'pt-BR', { numeric: true });
+    }
+
     // ===== Renderiza as linhas da tabela =====
     function renderizarTabela(registros) {
       const total = registros.reduce(
         (soma, r) => soma + (Number(campo(r, 'QUANTIDADE', 'quantidade')) || 0), 0
       );
+      const ordenados = [...registros].sort(ordenarPorCorTamanho);
 
       // Atualiza os cards com a quantidade por cor
-      renderizarCardsPorCor(registros);
+      renderizarCardsPorCor(ordenados);
 
       if (!registros.length) {
         corpoTabela.innerHTML =
@@ -401,7 +412,7 @@
         return;
       }
 
-      corpoTabela.innerHTML = registros.map((r) => {
+      corpoTabela.innerHTML = ordenados.map((r) => {
         const cor = campo(r, 'COR', 'cor');
         return `
         <tr>
