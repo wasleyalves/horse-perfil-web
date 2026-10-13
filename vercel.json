@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://offers-modification-rating-common.trycloudflare.com/:path*"
+    }
+  ]
+}
