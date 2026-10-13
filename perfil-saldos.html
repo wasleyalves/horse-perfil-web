@@ -109,7 +109,7 @@
     .btn.ghost:hover { border-color: #D3D8E0; filter: none; }
 
     /* ===== Cards de resumo ===== */
-    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
     .stat {
       position: relative; overflow: hidden;
       background: var(--surface); border: 1px solid var(--border);
@@ -192,7 +192,7 @@
         </a>
         <span class="nav-item is-active">
           <svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h16M8 15l3-4 3 3 4-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Movimentações
+          Saldo
         </span>
       </nav>
 
@@ -209,34 +209,13 @@
         <a class="btn ghost" href="index.html">&larr; Voltar para a lista</a>
       </header>
 
-      <!-- Resumos -->
-      <section class="stats">
-        <article class="stat">
-          <span class="stat-label">Itens listados</span>
-          <strong class="stat-value" id="kpiItens">&mdash;</strong>
-          <span class="stat-accent" style="--c: var(--primary)"></span>
-        </article>
-        <article class="stat">
-          <span class="stat-label">Quantidade total</span>
-          <strong class="stat-value" id="kpiQuantidade">&mdash;</strong>
-          <span class="stat-accent" style="--c: var(--accent-peach)"></span>
-        </article>
-        <article class="stat">
-          <span class="stat-label">Média por item</span>
-          <strong class="stat-value" id="kpiMedia">&mdash;</strong>
-          <span class="stat-accent" style="--c: var(--accent-blue)"></span>
-        </article>
-        <article class="stat">
-          <span class="stat-label">Cores distintas</span>
-          <strong class="stat-value" id="kpiCores">&mdash;</strong>
-          <span class="stat-accent" style="--c: var(--accent-purple)"></span>
-        </article>
-      </section>
+      <!-- Resumos: quantidade por cor -->
+      <section class="stats" id="cardsCores"></section>
 
       <!-- Listagem do saldo (GET /perfil_list/:perfil) -->
       <section class="card">
         <div class="card-head">
-          <h2>Movimentação</h2>
+          <h2>Saldo</h2>
         </div>
 
         <div class="tabela-wrapper">
@@ -280,10 +259,7 @@
     const nomePerfil  = document.getElementById('nomePerfil');
     const urlApi      = document.getElementById('urlApi');
 
-    const kpiItens      = document.getElementById('kpiItens');
-    const kpiQuantidade = document.getElementById('kpiQuantidade');
-    const kpiMedia      = document.getElementById('kpiMedia');
-    const kpiCores      = document.getElementById('kpiCores');
+    const cardsCores = document.getElementById('cardsCores');
 
     // ===== Exibe mensagem temporária de erro =====
     let statusTimer;
@@ -333,20 +309,46 @@
       return mapa[chave] || '#CBD2D9';
     }
 
+    // ===== Renderiza os cards com a quantidade total por cor =====
+    function renderizarCardsPorCor(registros) {
+      // Agrupa a quantidade por cor (a grafia exibida é a do primeiro registro de cada cor)
+      const porCor = new Map();
+      registros.forEach((r) => {
+        const nome = String(campo(r, 'COR', 'cor')).trim();
+        const chave = nome.toLowerCase();
+        const qtd = Number(campo(r, 'QUANTIDADE', 'quantidade')) || 0;
+        if (!porCor.has(chave)) porCor.set(chave, { nome, total: 0 });
+        porCor.get(chave).total += qtd;
+      });
+
+      if (!porCor.size) {
+        cardsCores.innerHTML = '';
+        return;
+      }
+
+      cardsCores.innerHTML = [...porCor.values()]
+        .sort((a, b) => b.total - a.total)
+        .map(({ nome, total }) => {
+          const hex = corParaHex(nome);
+          const rotulo = escapar(nome) || 'Sem cor';
+          return `
+        <article class="stat">
+          <span class="stat-label"><span class="swatch"><i style="--sw:${hex}"></i>${rotulo}</span></span>
+          <strong class="stat-value">${formatarNumero(total)}</strong>
+          <span class="stat-accent" style="--c: ${hex}"></span>
+        </article>`;
+        })
+        .join('');
+    }
+
     // ===== Renderiza as linhas da tabela =====
     function renderizarTabela(registros) {
       const total = registros.reduce(
         (soma, r) => soma + (Number(campo(r, 'QUANTIDADE', 'quantidade')) || 0), 0
       );
 
-      // Atualiza os cards de resumo
-      const cores = new Set(
-        registros.map((r) => String(campo(r, 'COR', 'cor')).trim().toLowerCase()).filter(Boolean)
-      );
-      kpiItens.textContent      = registros.length;
-      kpiQuantidade.textContent = total.toLocaleString('pt-BR');
-      kpiMedia.textContent      = registros.length ? (total / registros.length).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '0';
-      kpiCores.textContent      = cores.size;
+      // Atualiza os cards com a quantidade por cor
+      renderizarCardsPorCor(registros);
 
       if (!registros.length) {
         corpoTabela.innerHTML =
