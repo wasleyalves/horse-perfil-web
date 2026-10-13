@@ -132,9 +132,16 @@
     th, td { padding: 13px 20px; text-align: left; border-bottom: 1px solid var(--border); }
     thead th {
       color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em;
-      font-weight: 600; background: #FBFCFE;
+      font-weight: 600; background: #FBFCFE; vertical-align: top;
     }
     tbody tr:hover { background: #FAFCFE; }
+
+    .filtro-coluna {
+      display: block; width: 100%; margin-top: 7px; padding: 6px 9px;
+      border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: .78rem;
+      font-weight: 400; text-transform: none; letter-spacing: normal; background: #fff;
+    }
+    .filtro-coluna:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(89, 183, 234, .18); }
 
     .vazio { text-align: center; color: var(--muted); padding: 36px 0; }
 
@@ -222,13 +229,13 @@
           <table>
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Perfil</th>
-                <th>Descrição</th>
-                <th>Cor</th>
-                <th>Tamanho</th>
-                <th>Localização</th>
-                <th class="numero">Quantidade</th>
+                <th>Código<input class="filtro-coluna" data-campo="codigo" placeholder="Filtrar" /></th>
+                <th>Perfil<input class="filtro-coluna" data-campo="perfil" placeholder="Filtrar" /></th>
+                <th>Descrição<input class="filtro-coluna" data-campo="descricao" placeholder="Filtrar" /></th>
+                <th>Cor<input class="filtro-coluna" data-campo="cor" placeholder="Filtrar" /></th>
+                <th>Tamanho<input class="filtro-coluna" data-campo="tamanho" placeholder="Filtrar" /></th>
+                <th>Localização<input class="filtro-coluna" data-campo="localizacao" placeholder="Filtrar" /></th>
+                <th class="numero">Quantidade<input class="filtro-coluna" data-campo="quantidade" placeholder="Filtrar" /></th>
               </tr>
             </thead>
             <tbody id="corpoTabela">
@@ -260,6 +267,9 @@
     const urlApi      = document.getElementById('urlApi');
 
     const cardsCores = document.getElementById('cardsCores');
+    const filtros     = document.querySelectorAll('.filtro-coluna');
+
+    let todosRegistros = []; // lista completa vinda da API
 
     // ===== Exibe mensagem temporária de erro =====
     let statusTimer;
@@ -279,6 +289,15 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    // ===== Normaliza texto para busca (sem acentos e minúsculo) =====
+    function normalizar(valor) {
+      return String(valor ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
     }
 
     // Lê um campo do registro aceitando variações de nome/maiúsculas
@@ -307,6 +326,34 @@
       };
       const chave = String(cor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
       return mapa[chave] || '#CBD2D9';
+    }
+
+    // Extrai os valores padronizados de um registro de saldo
+    function valoresSaldo(registro) {
+      return {
+        codigo: campo(registro, 'COD_PERFIL_ESPECIAL', 'cod_perfil_especial'),
+        perfil: campo(registro, 'PERFIL', 'perfil'),
+        descricao: campo(registro, 'DSC_PERFIL', 'DESCRICAO', 'descricao'),
+        cor: campo(registro, 'COR', 'cor'),
+        tamanho: campo(registro, 'TAMANHO', 'tamanho'),
+        localizacao: campo(registro, 'LOCALIZACAO', 'localizacao'),
+        quantidade: campo(registro, 'QUANTIDADE', 'quantidade')
+      };
+    }
+
+    // ===== Aplica os filtros de cada coluna =====
+    function aplicarFiltros() {
+      const porColuna = {};
+      filtros.forEach((f) => { porColuna[f.dataset.campo] = normalizar(f.value); });
+
+      const filtrados = todosRegistros.filter((registro) => {
+        const v = valoresSaldo(registro);
+        return Object.keys(porColuna).every((coluna) =>
+          !porColuna[coluna] || normalizar(v[coluna]).includes(porColuna[coluna])
+        );
+      });
+
+      renderizarTabela(filtrados);
     }
 
     // ===== Renderiza os cards com a quantidade total por cor =====
@@ -352,7 +399,7 @@
 
       if (!registros.length) {
         corpoTabela.innerHTML =
-          '<tr><td colspan="7" class="vazio">Nenhum registro encontrado para este perfil.</td></tr>';
+          '<tr><td colspan="7" class="vazio">Nenhum registro encontrado.</td></tr>';
         rodape.innerHTML = '';
         return;
       }
@@ -383,6 +430,7 @@
     async function carregarSaldo() {
       if (!perfil) {
         nomePerfil.textContent = '—';
+        cardsCores.innerHTML = '';
         corpoTabela.innerHTML =
           '<tr><td colspan="7" class="vazio">Perfil não informado na URL.</td></tr>';
         mostrarErro('Parâmetro "perfil" ausente na URL.');
@@ -401,7 +449,8 @@
 
         // Horse responde 404 quando não há registros: tratamos como lista vazia
         if (resposta.status === 404) {
-          renderizarTabela([]);
+          todosRegistros = [];
+          aplicarFiltros();
           return;
         }
         if (!resposta.ok) {
@@ -409,14 +458,19 @@
         }
 
         const dados = await resposta.json();
-        renderizarTabela(Array.isArray(dados) ? dados : [dados]);
+        todosRegistros = Array.isArray(dados) ? dados : [dados];
+        aplicarFiltros();
       } catch (erro) {
+        cardsCores.innerHTML = '';
         corpoTabela.innerHTML =
           `<tr><td colspan="7" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
         rodape.innerHTML = '';
         mostrarErro('Não foi possível conectar à API.');
       }
     }
+
+    // ===== Filtros de coluna =====
+    filtros.forEach((f) => f.addEventListener('input', aplicarFiltros));
 
     // ===== Carga inicial =====
     carregarSaldo();
