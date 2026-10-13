@@ -239,14 +239,13 @@
           <table>
             <thead>
               <tr>
-                <th>Código<input class="filtro-coluna" data-campo="codigo" placeholder="Filtrar" /></th>
                 <th>Perfil<input class="filtro-coluna" data-campo="perfil" placeholder="Filtrar" /></th>
                 <th>Descrição<input class="filtro-coluna" data-campo="descricao" placeholder="Filtrar" /></th>
                 <th>Figura<input class="filtro-coluna" data-campo="figura" placeholder="Filtrar" /></th>
               </tr>
             </thead>
             <tbody id="corpoTabela">
-              <tr><td colspan="4" class="vazio">Carregando...</td></tr>
+              <tr><td colspan="3" class="vazio">Carregando...</td></tr>
             </tbody>
           </table>
         </div>
@@ -302,7 +301,6 @@
     // Extrai os valores padronizados de um registro
     function valores(perfil) {
       return {
-        codigo: perfil.COD_PERFIL_ESPECIAL ?? perfil.cod_perfil_especial ?? '',
         perfil: perfil.PERFIL ?? perfil.perfil ?? '',
         descricao: perfil.DESCRICAO ?? perfil.descricao ?? '',
         figura: perfil.FIGURA ?? perfil.figura ?? ''
@@ -322,7 +320,7 @@
 
         // Busca geral: precisa aparecer em qualquer coluna
         if (termoGeral) {
-          const tudo = `${v.codigo} ${v.perfil} ${v.descricao} ${v.figura}`;
+          const tudo = `${v.perfil} ${v.descricao} ${v.figura}`;
           if (!normalizar(tudo).includes(termoGeral)) return false;
         }
 
@@ -341,7 +339,7 @@
     function renderizarTabela(perfis) {
       if (!perfis.length) {
         corpoTabela.innerHTML =
-          '<tr><td colspan="4" class="vazio">Nenhum perfil encontrado.</td></tr>';
+          '<tr><td colspan="3" class="vazio">Nenhum perfil encontrado.</td></tr>';
         return;
       }
 
@@ -363,7 +361,6 @@
           : `<span style="color:var(--muted)">—</span>`;
         return `
           <tr>
-            <td>${escapar(v.codigo)}</td>
             <td><a class="link-perfil" href="${url}">${escapar(v.perfil)}</a></td>
             <td>${escapar(v.descricao)}</td>
             <td>${figura}</td>
@@ -373,7 +370,7 @@
 
     // ===== GET: lista todos os perfis =====
     async function carregarPerfis() {
-      corpoTabela.innerHTML = '<tr><td colspan="4" class="vazio">Carregando...</td></tr>';
+      corpoTabela.innerHTML = '<tr><td colspan="3" class="vazio">Carregando...</td></tr>';
       try {
         const resposta = await fetch(API_BASE, {
           method: 'GET',
@@ -397,7 +394,7 @@
         aplicarFiltros();
       } catch (erro) {
         corpoTabela.innerHTML =
-          `<tr><td colspan="4" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
+          `<tr><td colspan="3" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
         contador.textContent = '';
         mostrarErro('Não foi possível conectar à API.');
       }
