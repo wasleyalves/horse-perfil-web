@@ -172,10 +172,6 @@
       transition: box-shadow .15s;
     }
     .thumb-link:hover .thumb { box-shadow: 0 0 0 2px rgba(89, 183, 234, .4); }
-    .figura-nome {
-      font-size: .78rem; color: var(--muted);
-      font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
-    }
 
     .link-perfil { color: var(--primary-ink); font-weight: 600; text-decoration: none; }
     .link-perfil:hover { text-decoration: underline; }
@@ -416,9 +412,8 @@
                <a class="thumb-link" href="${imgUrl}" target="_blank" rel="noopener">
                  <img class="thumb" loading="lazy" src="${imgUrl}"
                       alt="${escapar(v.figura)}" title="${escapar(v.figura)}"
-                      onerror="this.style.visibility='hidden'">
+                       onerror="this.style.visibility='hidden'">
                </a>
-               <span class="figura-nome">${escapar(v.figura)}</span>
              </span>`
           : `<span style="color:var(--muted)">—</span>`;
         return `
