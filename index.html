@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perfil Especial - Listagem</title>
+  <style>
+    /* ===== Reset e variáveis de tema ===== */
+    :root {
+      --cor-primaria: #2563eb;
+      --cor-perigo: #dc2626;
+      --cor-fundo: #f1f5f9;
+      --cor-card: #ffffff;
+      --cor-borda: #e2e8f0;
+      --cor-texto: #1e293b;
+      --cor-texto-suave: #64748b;
+      --sombra: 0 1px 3px rgba(0, 0, 0, .08), 0 1px 2px rgba(0, 0, 0, .06);
+      --raio: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--cor-fundo);
+      color: var(--cor-texto);
+      line-height: 1.5;
+      padding: 24px 16px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      gap: 20px;
+    }
+
+    header h1 { font-size: 1.6rem; font-weight: 700; }
+    header p { color: var(--cor-texto-suave); font-size: .95rem; }
+
+    .card {
+      background: var(--cor-card);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio);
+      box-shadow: var(--sombra);
+      padding: 20px;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 16px; }
+
+    /* ===== Barra de busca ===== */
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .busca {
+      position: relative;
+      flex: 1 1 260px;
+    }
+    .busca input {
+      width: 100%;
+      padding: 10px 12px 10px 36px;
+      border: 1px solid var(--cor-borda);
+      border-radius: 8px;
+      font-size: .95rem;
+      font-family: inherit;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .busca input:focus {
+      outline: none;
+      border-color: var(--cor-primaria);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+    }
+    .busca::before {
+      content: "\1F50D";
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: .9rem;
+      opacity: .5;
+      pointer-events: none;
+    }
+    .contador {
+      color: var(--cor-texto-suave);
+      font-size: .85rem;
+      white-space: nowrap;
+    }
+
+    /* ===== Tabela ===== */
+    .tabela-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--cor-borda); }
+    th {
+      color: var(--cor-texto-suave);
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      vertical-align: top;
+    }
+    tbody tr:hover { background: #f8fafc; }
+
+    /* Filtros por coluna no cabeçalho */
+    .filtro-coluna {
+      display: block;
+      width: 100%;
+      margin-top: 6px;
+      padding: 6px 8px;
+      border: 1px solid var(--cor-borda);
+      border-radius: 6px;
+      font-size: .8rem;
+      font-family: inherit;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: normal;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .filtro-coluna:focus {
+      outline: none;
+      border-color: var(--cor-primaria);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, .15);
+    }
+
+    .vazio { text-align: center; color: var(--cor-texto-suave); padding: 32px 0; }
+
+    /* Link de acesso ao saldo do perfil */
+    .link-perfil {
+      color: var(--cor-primaria);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .link-perfil:hover { text-decoration: underline; }
+
+    /* ===== Mensagem de status ===== */
+    #status {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      padding: 12px 18px;
+      border-radius: 8px;
+      color: #fff;
+      font-size: .9rem;
+      box-shadow: var(--sombra);
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity .25s, transform .25s;
+      pointer-events: none;
+      max-width: 320px;
+    }
+    #status.visivel { opacity: 1; transform: translateY(0); }
+    #status.erro { background: var(--cor-perigo); }
+
+    /* ===== Responsividade ===== */
+    @media (max-width: 640px) {
+      .card { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Perfil Especial</h1>
+      <p>Consumo da API Horse (Delphi) &mdash; <code id="endpointLabel">/perfil</code></p>
+    </header>
+
+    <!-- ===== Listagem (GET) ===== -->
+    <section class="card">
+      <h2>Perfis cadastrados</h2>
+
+      <!-- Campo de busca geral + contador -->
+      <div class="toolbar">
+        <div class="busca">
+          <input type="search" id="buscaGeral" placeholder="Buscar em todas as colunas..." autocomplete="off" />
+        </div>
+        <span class="contador" id="contador">Carregando...</span>
+      </div>
+
+      <div class="tabela-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Código<input class="filtro-coluna" data-campo="codigo" placeholder="Filtrar" /></th>
+              <th>Perfil<input class="filtro-coluna" data-campo="perfil" placeholder="Filtrar" /></th>
+              <th>Descrição<input class="filtro-coluna" data-campo="descricao" placeholder="Filtrar" /></th>
+              <th>Figura<input class="filtro-coluna" data-campo="figura" placeholder="Filtrar" /></th>
+            </tr>
+          </thead>
+          <tbody id="corpoTabela">
+            <tr><td colspan="4" class="vazio">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div id="status"></div>
+
+  <!-- Define window.API_ORIGIN conforme o ambiente -->
+  <script src="config.js"></script>
+  <script>
+    // ===== Configuração =====
+    const API_BASE = `${window.API_ORIGIN}/perfil`; // URL base da API Horse
+    document.getElementById('endpointLabel').textContent = `${API_BASE}`;
+
+    const corpoTabela = document.getElementById('corpoTabela');
+    const statusEl    = document.getElementById('status');
+    const buscaGeral  = document.getElementById('buscaGeral');
+    const contador    = document.getElementById('contador');
+    const filtros     = document.querySelectorAll('.filtro-coluna');
+
+    let todosPerfis = []; // lista completa vinda da API
+
+    // ===== Exibe mensagem temporária de erro =====
+    let statusTimer;
+    function mostrarErro(mensagem) {
+      statusEl.textContent = mensagem;
+      statusEl.className = 'visivel erro';
+      clearTimeout(statusTimer);
+      statusTimer = setTimeout(() => { statusEl.className = ''; }, 3500);
+    }
+
+    // ===== Escapa HTML para evitar injeção no innerHTML =====
+    function escapar(valor) {
+      if (valor === null || valor === undefined) return '';
+      return String(valor)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // ===== Normaliza texto para busca (sem acentos e minúsculo) =====
+    function normalizar(valor) {
+      return String(valor ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    }
+
+    // Extrai os valores padronizados de um registro
+    function valores(perfil) {
+      return {
+        codigo: perfil.COD_PERFIL_ESPECIAL ?? perfil.cod_perfil_especial ?? '',
+        perfil: perfil.PERFIL ?? perfil.perfil ?? '',
+        descricao: perfil.DESCRICAO ?? perfil.descricao ?? '',
+        figura: perfil.FIGURA ?? perfil.figura ?? ''
+      };
+    }
+
+    // ===== Aplica a busca geral e os filtros de cada coluna =====
+    function aplicarFiltros() {
+      const termoGeral = normalizar(buscaGeral.value);
+
+      // Lê o valor digitado em cada filtro de coluna
+      const porColuna = {};
+      filtros.forEach((f) => { porColuna[f.dataset.campo] = normalizar(f.value); });
+
+      const filtrados = todosPerfis.filter((perfil) => {
+        const v = valores(perfil);
+
+        // Busca geral: precisa aparecer em qualquer coluna
+        if (termoGeral) {
+          const tudo = `${v.codigo} ${v.perfil} ${v.descricao} ${v.figura}`;
+          if (!normalizar(tudo).includes(termoGeral)) return false;
+        }
+
+        // Filtros por coluna: todos devem coincidir
+        return Object.keys(porColuna).every((campo) =>
+          !porColuna[campo] || normalizar(v[campo]).includes(porColuna[campo])
+        );
+      });
+
+      renderizarTabela(filtrados);
+      contador.textContent =
+        `${filtrados.length} de ${todosPerfis.length} registro(s)`;
+    }
+
+    // ===== Renderiza as linhas da tabela =====
+    function renderizarTabela(perfis) {
+      if (!perfis.length) {
+        corpoTabela.innerHTML =
+          '<tr><td colspan="4" class="vazio">Nenhum perfil encontrado.</td></tr>';
+        return;
+      }
+
+      corpoTabela.innerHTML = perfis.map((perfil) => {
+        const v = valores(perfil);
+        // A coluna Perfil é um link para a página de saldo do perfil
+        const url = `perfil-saldos.html?perfil=${encodeURIComponent(v.perfil)}`;
+        return `
+          <tr>
+            <td>${escapar(v.codigo)}</td>
+            <td><a class="link-perfil" href="${url}">${escapar(v.perfil)}</a></td>
+            <td>${escapar(v.descricao)}</td>
+            <td>${escapar(v.figura)}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ===== GET: lista todos os perfis =====
+    async function carregarPerfis() {
+      corpoTabela.innerHTML = '<tr><td colspan="4" class="vazio">Carregando...</td></tr>';
+      try {
+        const resposta = await fetch(API_BASE, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        // O backend Horse responde 404 quando a lista está vazia.
+        // Tratamos esse caso como "nenhum registro".
+        if (resposta.status === 404) {
+          todosPerfis = [];
+          aplicarFiltros();
+          return;
+        }
+        if (!resposta.ok) {
+          throw new Error(`Erro HTTP ${resposta.status}`);
+        }
+
+        // Converte o corpo da resposta para JSON (array de objetos)
+        const dados = await resposta.json();
+        todosPerfis = Array.isArray(dados) ? dados : [dados];
+        aplicarFiltros();
+      } catch (erro) {
+        corpoTabela.innerHTML =
+          `<tr><td colspan="4" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
+        contador.textContent = '';
+        mostrarErro('Não foi possível conectar à API.');
+      }
+    }
+
+    // ===== Eventos: refiltrar conforme digita =====
+    buscaGeral.addEventListener('input', aplicarFiltros);
+    filtros.forEach((f) => f.addEventListener('input', aplicarFiltros));
+
+    // ===== Carga inicial =====
+    carregarPerfis();
+  </script>
+</body>
+</html>
