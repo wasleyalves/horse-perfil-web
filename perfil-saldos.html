@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Saldo do Perfil</title>
+  <style>
+    /* ===== Reset e variáveis de tema ===== */
+    :root {
+      --cor-primaria: #2563eb;
+      --cor-perigo: #dc2626;
+      --cor-fundo: #f1f5f9;
+      --cor-card: #ffffff;
+      --cor-borda: #e2e8f0;
+      --cor-texto: #1e293b;
+      --cor-texto-suave: #64748b;
+      --sombra: 0 1px 3px rgba(0, 0, 0, .08), 0 1px 2px rgba(0, 0, 0, .06);
+      --raio: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--cor-fundo);
+      color: var(--cor-texto);
+      line-height: 1.5;
+      padding: 24px 16px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: grid;
+      gap: 20px;
+    }
+
+    .voltar {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--cor-primaria);
+      text-decoration: none;
+      font-size: .9rem;
+      font-weight: 600;
+    }
+    .voltar:hover { text-decoration: underline; }
+
+    header h1 { font-size: 1.6rem; font-weight: 700; }
+    header p { color: var(--cor-texto-suave); font-size: .95rem; }
+
+    .card {
+      background: var(--cor-card);
+      border: 1px solid var(--cor-borda);
+      border-radius: var(--raio);
+      box-shadow: var(--sombra);
+      padding: 20px;
+    }
+    .card h2 { font-size: 1.1rem; margin-bottom: 16px; }
+
+    /* ===== Tabela ===== */
+    .tabela-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--cor-borda); }
+    th {
+      color: var(--cor-texto-suave);
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    tbody tr:hover { background: #f8fafc; }
+
+    td.numero, th.numero { text-align: right; font-variant-numeric: tabular-nums; }
+
+    tfoot td {
+      font-weight: 700;
+      border-top: 2px solid var(--cor-borda);
+      border-bottom: none;
+    }
+
+    .vazio { text-align: center; color: var(--cor-texto-suave); padding: 32px 0; }
+
+    /* ===== Mensagem de status ===== */
+    #status {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      padding: 12px 18px;
+      border-radius: 8px;
+      color: #fff;
+      font-size: .9rem;
+      box-shadow: var(--sombra);
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity .25s, transform .25s;
+      pointer-events: none;
+      max-width: 320px;
+    }
+    #status.visivel { opacity: 1; transform: translateY(0); }
+    #status.erro { background: var(--cor-perigo); }
+
+    /* ===== Responsividade ===== */
+    @media (max-width: 640px) {
+      .card { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <a class="voltar" href="index.html">&larr; Voltar para a lista</a>
+    </div>
+
+    <header>
+      <h1>Saldo do Perfil: <span id="nomePerfil">&mdash;</span></h1>
+      <p>Origem: <code id="urlApi">&mdash;</code></p>
+    </header>
+
+    <!-- ===== Listagem do saldo (GET /perfil_list/:perfil) ===== -->
+    <section class="card">
+      <h2>Movimentação</h2>
+      <div class="tabela-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Perfil</th>
+              <th>Descrição</th>
+              <th>Cor</th>
+              <th>Tamanho</th>
+              <th>Localização</th>
+              <th class="numero">Quantidade</th>
+            </tr>
+          </thead>
+          <tbody id="corpoTabela">
+            <tr><td colspan="7" class="vazio">Carregando...</td></tr>
+          </tbody>
+          <tfoot id="rodape"></tfoot>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div id="status"></div>
+
+  <script>
+    // ===== Configuração =====
+    const API_BASE = 'http://localhost:9000/perfil_list'; // endpoint de saldo do perfil
+
+    // Lê o parâmetro "perfil" da URL (ex.: perfil-saldos.html?perfil=SU100)
+    const parametros = new URLSearchParams(window.location.search);
+    const perfil = (parametros.get('perfil') || '').trim();
+
+    const corpoTabela = document.getElementById('corpoTabela');
+    const rodape      = document.getElementById('rodape');
+    const statusEl    = document.getElementById('status');
+    const nomePerfil  = document.getElementById('nomePerfil');
+    const urlApi      = document.getElementById('urlApi');
+
+    // ===== Exibe mensagem temporária de erro =====
+    let statusTimer;
+    function mostrarErro(mensagem) {
+      statusEl.textContent = mensagem;
+      statusEl.className = 'visivel erro';
+      clearTimeout(statusTimer);
+      statusTimer = setTimeout(() => { statusEl.className = ''; }, 3500);
+    }
+
+    // ===== Escapa HTML para evitar injeção no innerHTML =====
+    function escapar(valor) {
+      if (valor === null || valor === undefined) return '';
+      return String(valor)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // Lê um campo do registro aceitando variações de nome/maiúsculas
+    function campo(registro, ...nomes) {
+      for (const nome of nomes) {
+        if (registro[nome] !== undefined && registro[nome] !== null) return registro[nome];
+      }
+      return '';
+    }
+
+    // Formata número no padrão pt-BR
+    function formatarNumero(valor) {
+      const n = Number(valor);
+      return Number.isFinite(n) ? n.toLocaleString('pt-BR') : escapar(valor);
+    }
+
+    // ===== Renderiza as linhas da tabela =====
+    function renderizarTabela(registros) {
+      const total = registros.reduce(
+        (soma, r) => soma + (Number(campo(r, 'QUANTIDADE', 'quantidade')) || 0), 0
+      );
+
+      if (!registros.length) {
+        corpoTabela.innerHTML =
+          '<tr><td colspan="7" class="vazio">Nenhum registro encontrado para este perfil.</td></tr>';
+        rodape.innerHTML = '';
+        return;
+      }
+
+      corpoTabela.innerHTML = registros.map((r) => `
+        <tr>
+          <td>${escapar(campo(r, 'COD_PERFIL_ESPECIAL', 'cod_perfil_especial'))}</td>
+          <td>${escapar(campo(r, 'PERFIL', 'perfil'))}</td>
+          <td>${escapar(campo(r, 'DSC_PERFIL', 'DESCRICAO', 'descricao'))}</td>
+          <td>${escapar(campo(r, 'COR', 'cor'))}</td>
+          <td>${escapar(campo(r, 'TAMANHO', 'tamanho'))}</td>
+          <td>${escapar(campo(r, 'LOCALIZACAO', 'localizacao'))}</td>
+          <td class="numero">${formatarNumero(campo(r, 'QUANTIDADE', 'quantidade'))}</td>
+        </tr>`).join('');
+
+      // Linha de total
+      rodape.innerHTML = `
+        <tr>
+          <td colspan="6">Total</td>
+          <td class="numero">${formatarNumero(total)}</td>
+        </tr>`;
+    }
+
+    // ===== GET: busca o saldo do perfil =====
+    async function carregarSaldo() {
+      if (!perfil) {
+        nomePerfil.textContent = '—';
+        corpoTabela.innerHTML =
+          '<tr><td colspan="7" class="vazio">Perfil não informado na URL.</td></tr>';
+        mostrarErro('Parâmetro "perfil" ausente na URL.');
+        return;
+      }
+
+      nomePerfil.textContent = perfil;
+      urlApi.textContent = `${API_BASE}/${encodeURIComponent(perfil)}`;
+      corpoTabela.innerHTML = '<tr><td colspan="7" class="vazio">Carregando...</td></tr>';
+
+      try {
+        const resposta = await fetch(`${API_BASE}/${encodeURIComponent(perfil)}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        // Horse responde 404 quando não há registros: tratamos como lista vazia
+        if (resposta.status === 404) {
+          renderizarTabela([]);
+          return;
+        }
+        if (!resposta.ok) {
+          throw new Error(`Erro HTTP ${resposta.status}`);
+        }
+
+        const dados = await resposta.json();
+        renderizarTabela(Array.isArray(dados) ? dados : [dados]);
+      } catch (erro) {
+        corpoTabela.innerHTML =
+          `<tr><td colspan="7" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
+        rodape.innerHTML = '';
+        mostrarErro('Não foi possível conectar à API.');
+      }
+    }
+
+    // ===== Carga inicial =====
+    carregarSaldo();
+  </script>
+</body>
+</html>

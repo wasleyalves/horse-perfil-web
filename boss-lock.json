@@ -1,0 +1,96 @@
+{
+	"hash": "d41d8cd98f00b204e9800998ecf8427e",
+	"updated": "2026-08-29T01:10:42-03:00",
+	"installedModules": {
+		"github.com/adrianosantostreina/adrconnection": {
+			"name": "github_com_adrianosantostreina_adrconnection",
+			"version": "2.0.2",
+			"hash": "4d7b2e433c7964b2ac7967353905b973",
+			"artifacts": {}
+		},
+		"github.com/bittencourtthulio/horse-paginate": {
+			"name": "github_com_bittencourtthulio_horse-paginate",
+			"version": "1.0.5",
+			"hash": "a97e84bd40cc4bf1000901047003e486",
+			"artifacts": {}
+		},
+		"github.com/dliocode/horse-utils-clientip": {
+			"name": "github_com_dliocode_horse-utils-clientip",
+			"version": "0.0.8",
+			"hash": "83125fa6038e2377749e27e23b8f3aee",
+			"artifacts": {}
+		},
+		"github.com/gabrielbaltazar/gbswagger": {
+			"name": "github_com_gabrielbaltazar_gbswagger",
+			"version": "2.1.4",
+			"hash": "e2f15009a75b8c1d8a652a57ff73c828",
+			"artifacts": {}
+		},
+		"github.com/hashload/handle-exception": {
+			"name": "github_com_hashload_handle-exception",
+			"version": "0.1.9",
+			"hash": "b7878eb4d418c67420daf8cc2e7f9dda",
+			"artifacts": {}
+		},
+		"github.com/hashload/horse": {
+			"name": "github_com_hashload_horse",
+			"version": "v2.0.14",
+			"hash": "38c6bebdc7b9712d6e5856d299289a26",
+			"artifacts": {}
+		},
+		"github.com/hashload/horse-basic-auth": {
+			"name": "github_com_hashload_horse-basic-auth",
+			"version": "1.2.6",
+			"hash": "5cb32499b42dfe10d1d9288dd22efd85",
+			"artifacts": {}
+		},
+		"github.com/hashload/horse-compression": {
+			"name": "github_com_hashload_horse-compression",
+			"version": "1.1.14",
+			"hash": "3075ff58f0a936e83aefb3b8093b04ca",
+			"artifacts": {}
+		},
+		"github.com/hashload/horse-logger": {
+			"name": "github_com_hashload_horse-logger",
+			"version": "2.0.11",
+			"hash": "5ad7cb2fc1d8b1bd2208e4dacc9bc528",
+			"artifacts": {}
+		},
+		"github.com/hashload/horse-logger-provider-console": {
+			"name": "github_com_hashload_horse-logger-provider-console",
+			"version": "1.0.11",
+			"hash": "d8a9d0ed0d0cd97ea0b6f3bd65f62bc6",
+			"artifacts": {}
+		},
+		"github.com/hashload/horse-logger-provider-logfile": {
+			"name": "github_com_hashload_horse-logger-provider-logfile",
+			"version": "1.0.15",
+			"hash": "c62eb4432b3fa15f9fe76f056275b24f",
+			"artifacts": {}
+		},
+		"github.com/hashload/horse-octet-stream": {
+			"name": "github_com_hashload_horse-octet-stream",
+			"version": "1.9.13",
+			"hash": "4384bebb8a1cf3ed93f7c6ae6c872248",
+			"artifacts": {}
+		},
+		"github.com/hashload/jhonson": {
+			"name": "github_com_hashload_jhonson",
+			"version": "1.2.5",
+			"hash": "5a116b8a6832a4ee5f061ef1ae18ebbe",
+			"artifacts": {}
+		},
+		"github.com/viniciussanchez/dataset-serialize": {
+			"name": "github_com_viniciussanchez_dataset-serialize",
+			"version": "v2.5.9",
+			"hash": "62a95816d2cac761b15521c06fe43109",
+			"artifacts": {}
+		},
+		"github.com/viniciussanchez/restrequest4delphi": {
+			"name": "github_com_viniciussanchez_restrequest4delphi",
+			"version": "v3.1.0",
+			"hash": "069c7aa4eca1494f0b657911c10b5c0c",
+			"artifacts": {}
+		}
+	}
+}

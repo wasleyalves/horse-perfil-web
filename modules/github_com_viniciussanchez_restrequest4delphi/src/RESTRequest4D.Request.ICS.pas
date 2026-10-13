@@ -1,0 +1,688 @@
+unit RESTRequest4D.Request.ICS;
+
+interface
+
+uses RESTRequest4D.Request.Contract, RESTRequest4D.Response.Contract, OverbyteIcsLogger, OverbyteIcsSSLEAY, OverbyteIcsWndControl,
+  OverbyteIcsHttpProt, OverbyteIcsUrl, OverbyteIcsWSocket, RESTRequest4D.Utils, OverbyteIcsSslHttpRest, NetEncoding,
+  RESTRequest4D.Request.Adapter.Contract, Data.DB, System.Classes, System.JSON, OverbyteIcsTypes;
+
+type
+  TRequestICS = class(TInterfacedObject, IRequest)
+  private
+    FSslHttpRest: TSslHttpRest;
+    FBaseURL: string;
+    FResource: string;
+    FResourceSuffix: string;
+    FResponse: IResponse;
+    FBodyRaw: TStringList;
+    FRetries: Integer;
+    FUrlSegments: TStrings;
+    FAdapters: TArray<IRequestAdapter>;
+    FProgressCurrent: Int64;
+    FRaiseExceptionOn500: Boolean;
+    FOnBeforeExecute: TRR4DCallbackOnBeforeExecute;
+    FOnAfterExecute: TRR4DCallbackOnAfterExecute;
+    FOnReceiveProgress: TRR4DCallbackOnProgress;
+    FOnSendProgress: TRR4DCallbackOnProgress;
+    function OnBeforeExecute(const AOnBeforeExecute: TRR4DCallbackOnBeforeExecute): IRequest;
+    function OnAfterExecute(const AOnAfterExecute: TRR4DCallbackOnAfterExecute): IRequest;
+    function OnReceiveProgress(const AOnProgress: TRR4DCallbackOnProgress): IRequest;
+    function OnSendProgress(const AOnProgress: TRR4DCallbackOnProgress): IRequest;
+    function Adapters(const AAdapter: IRequestAdapter): IRequest; overload;
+    function Adapters(const AAdapters: TArray<IRequestAdapter>): IRequest; overload;
+    function Adapters: TArray<IRequestAdapter>; overload;
+    procedure ExecuteRequest(const AMethod: TMethodRequest);
+    function AcceptEncoding: string; overload;
+    function AcceptEncoding(const AAcceptEncoding: string): IRequest; overload;
+    function AcceptCharset: string; overload;
+    function AcceptCharset(const AAcceptCharset: string): IRequest; overload;
+    function Accept: string; overload;
+    function Accept(const AAccept: string): IRequest; overload;
+    function Timeout: Integer; overload;
+    function Timeout(const ATimeout: Integer): IRequest; overload;
+    function BaseURL(const ABaseURL: string): IRequest; overload;
+    function BaseURL: string; overload;
+    function Resource(const AResource: string): IRequest; overload;
+    function RaiseExceptionOn500: Boolean; overload;
+    function RaiseExceptionOn500(const ARaiseException: Boolean): IRequest; overload;
+    function Resource: string; overload;
+    function ResourceSuffix(const AResourceSuffix: string): IRequest; overload;
+    function ResourceSuffix: string; overload;
+    function Token(const AToken: string): IRequest;
+    function TokenBearer(const AToken: string): IRequest;
+    function BasicAuthentication(const AUsername, APassword: string): IRequest;
+    function Retry(const ARetries: Integer): IRequest;
+    function Get: IResponse;
+    function Post: IResponse;
+    function Put: IResponse;
+    function Delete: IResponse;
+    function Patch: IResponse;
+    function GetAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function PostAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function PutAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function DeleteAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function PatchAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function FullRequestURL(const AIncludeParams: Boolean = True): string;
+    function ClearBody: IRequest;
+    function AddParam(const AName, AValue: string): IRequest;
+    function AddBody(const AContent: string): IRequest; overload;
+    function AddHeader(const AName, AValue: string): IRequest;
+    function AddBody(const AContent: TJSONObject; const AOwns: Boolean = True): IRequest; overload;
+    function AddBody(const AContent: TJSONArray; const AOwns: Boolean = True): IRequest; overload;
+    function AddBody(const AContent: TObject; const AOwns: Boolean = True): IRequest; overload;
+    function AddBody(const AContent: TStream; const AOwns: Boolean = True): IRequest; overload;
+    function AddUrlSegment(const AName, AValue: string): IRequest;
+    function ClearHeaders: IRequest;
+    function ClearParams: IRequest;
+    function UserAgent(const AName: string): IRequest;
+    function ContentType(const AContentType: string): IRequest; overload;
+    function ContentType: string; overload;
+    function AddCookies(const ACookies: TStrings): IRequest;
+    function AddCookie(const ACookieName, ACookieValue: string): IRequest;
+    function AddFile(const AFileName: string; UploadStrat: THttpUploadStrat): IRequest; overload;
+    function AddField(const AFieldName: string; const AValue: string): IRequest; overload;
+    function AddFieldFormData(const AFieldName: string; const AValue: string): IRequest;
+    function AddFieldXWwwForm(const AFieldName: string; const AValue: string): IRequest;    function Proxy(const AServer, APassword, AUsername: string; const APort: Integer): IRequest;
+    function DeactivateProxy: IRequest;
+    function CertFile(const APath: string): IRequest;
+    function KeyFile(const APath: string): IRequest;
+    function MakeURL(const AIncludeParams: Boolean = True): string;
+  protected
+    procedure DoBeforeExecute; virtual;
+    procedure DoAfterExecute; virtual;
+
+    procedure DoStateChange(Sender: TObject); virtual;
+    procedure DoReceiveDataEvent(Sender: TObject; Buffer: Pointer; Len: Integer); virtual;
+    procedure DoSendDataEvent(Sender: TObject; Buffer: Pointer; Len: Integer); virtual;
+  public
+    constructor Create;
+    class function New: IRequest;
+    destructor Destroy; override;
+  end;
+
+implementation
+
+uses RESTRequest4D.Response.ICS, System.SysUtils, REST.JSON;
+
+function TRequestICS.OnBeforeExecute(const AOnBeforeExecute: TRR4DCallbackOnBeforeExecute): IRequest;
+begin
+  Result := Self;
+  FOnBeforeExecute := AOnBeforeExecute;
+end;
+
+function TRequestICS.OnReceiveProgress(
+  const AOnProgress: TRR4DCallbackOnProgress): IRequest;
+begin
+  Result := Self;
+  FOnReceiveProgress := AOnProgress;
+  FSslHttpRest.ShowProgress := Assigned(FOnReceiveProgress);
+  FSslHttpRest.ProgIntSecs := 1; // Force the method to run every second
+end;
+
+function TRequestICS.OnSendProgress(
+  const AOnProgress: TRR4DCallbackOnProgress): IRequest;
+begin
+  Result := Self;
+  FOnSendProgress := AOnProgress;
+  FSslHttpRest.ShowProgress := Assigned(FOnSendProgress);
+  FSslHttpRest.ProgIntSecs := 1; // Force the method to run every second
+end;
+
+function TRequestICS.OnAfterExecute(const AOnAfterExecute: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  FOnAfterExecute := AOnAfterExecute;
+end;
+
+function TRequestICS.Adapters: TArray<IRequestAdapter>;
+begin
+  Result := FAdapters;
+end;
+
+function TRequestICS.Adapters(const AAdapters: TArray<IRequestAdapter>): IRequest;
+begin
+  FAdapters := AAdapters;
+  Result := Self;
+end;
+
+function TRequestICS.Adapters(const AAdapter: IRequestAdapter): IRequest;
+begin
+  Result := Adapters([AAdapter]);
+end;
+
+function TRequestICS.AddBody(const AContent: TStream; const AOwns: Boolean): IRequest;
+begin
+  Result := Self;
+  try
+    FBodyRaw.LoadFromStream(AContent);
+  finally
+    if AOwns then
+      AContent.Free;
+  end;
+end;
+
+function TRequestICS.AddCookie(const ACookieName, ACookieValue: string): IRequest;
+begin
+  Result := Self;
+  if FSslHttpRest.Cookie.Trim.IsEmpty then
+    FSslHttpRest.Cookie := ACookieName + '=' + ACookieValue
+  else
+    FSslHttpRest.Cookie := FSslHttpRest.Cookie + '; ' + ACookieName + '=' + ACookieValue;
+end;
+
+function TRequestICS.AddCookies(const ACookies: TStrings): IRequest;
+var
+  I: Integer;
+begin
+  Result := Self;
+  try
+    for I := 0 to Pred(ACookies.Count) do
+    begin
+      if FSslHttpRest.Cookie.Trim.IsEmpty then
+        FSslHttpRest.Cookie := ACookies.Names[I] + '=' + ACookies.Values[ACookies.Names[I]]
+      else
+        FSslHttpRest.Cookie := FSslHttpRest.Cookie + '; ' + ACookies.Names[I] + '=' + ACookies.Values[ACookies.Names[I]];
+    end;
+  finally
+    ACookies.Free;
+  end;
+end;
+
+function TRequestICS.AddField(const AFieldName, AValue: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.RestParams.AddItem(AFieldName, AValue);
+  FSslHttpRest.RestParams.PContent := PContUrlencoded;
+end;
+
+function TRequestICS.AddFieldFormData(const AFieldName, AValue: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.RestParams.AddItem(AFieldName, AValue);
+end;
+
+function TRequestICS.AddFieldXWwwForm(const AFieldName, AValue: string): IRequest;
+begin
+  Result := Self;
+  Result.AddField(AFieldName, AValue);
+end;
+
+function TRequestICS.AddFile(const AFileName: string; UploadStrat: THttpUploadStrat): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.HttpUploadFile := AFileName;
+  FSslHttpRest.HttpUploadStrat := UploadStrat;
+end;
+
+function TRequestICS.RaiseExceptionOn500: Boolean;
+begin
+  Result := FRaiseExceptionOn500;
+end;
+
+function TRequestICS.RaiseExceptionOn500(const ARaiseException: Boolean): IRequest;
+begin
+  Result := Self;
+  FRaiseExceptionOn500 := ARaiseException;
+end;
+
+function TRequestICS.Patch: IResponse;
+begin
+  FResponse := TResponseICS.Create(Self, FSslHttpRest);
+  Result := FResponse;
+  try
+    ExecuteRequest(mrPATCH);
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestICS.Put: IResponse;
+begin
+  FResponse := TResponseICS.Create(Self, FSslHttpRest);
+  Result := FResponse;
+  try
+    ExecuteRequest(mrPUT);
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestICS.Post: IResponse;
+begin
+  FResponse := TResponseICS.Create(Self, FSslHttpRest);
+  Result := FResponse;
+  try
+    ExecuteRequest(mrPOST);
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestICS.Proxy(const AServer, APassword, AUsername: string; const APort: Integer): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.Proxy := AServer;
+  FSslHttpRest.ProxyUsername := AUsername;
+  FSslHttpRest.ProxyPassword := APassword;
+  FSslHttpRest.ProxyPort := IntToStr(APort);
+end;
+
+function TRequestICS.Get: IResponse;
+begin
+  FResponse := TResponseICS.Create(Self, FSslHttpRest);
+  Result := FResponse;
+  try
+    ExecuteRequest(mrGET);
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestICS.KeyFile(const APath: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.SslCliCert.PrivateKeyLoadFromPemFile(APath);
+end;
+
+function TRequestICS.DeactivateProxy: IRequest;
+begin
+  FSslHttpRest.ProxyURL := '';
+  FSslHttpRest.ProxyUsername := '';
+  FSslHttpRest.ProxyPassword := '';
+  FSslHttpRest.ProxyPort := '';
+end;
+
+function TRequestICS.Delete: IResponse;
+begin
+  FResponse := TResponseICS.Create(Self, FSslHttpRest);
+  Result := FResponse;
+  try
+    ExecuteRequest(mrDELETE);
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestICS.AddBody(const AContent: string): IRequest;
+begin
+  Result := Self;
+  FBodyRaw.Clear;
+  Self.ContentType('application/json; charset=UTF-8');
+  FSslHttpRest.RestParams.PContent := PContBodyJson;
+  FBodyRaw.Add(AContent);
+end;
+
+function TRequestICS.AddHeader(const AName, AValue: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.ExtraHeaders.Add(Format('%s: %s', [AName, AValue]));
+end;
+
+function TRequestICS.Token(const AToken: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.ServerAuth := httpAuthToken;
+  FSslHttpRest.AuthBearerToken := AToken;
+end;
+
+function TRequestICS.TokenBearer(const AToken: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.ServerAuth := httpAuthBearer;
+  FSslHttpRest.AuthBearerToken := AToken;
+end;
+
+function TRequestICS.FullRequestURL(const AIncludeParams: Boolean): string;
+begin
+  Result := Self.MakeURL(AIncludeParams);
+end;
+
+function TRequestICS.MakeURL(const AIncludeParams: Boolean): string;
+begin
+  Result := TR4DUtils.BuildURL(FBaseURL, FResource, FResourceSuffix, FUrlSegments, nil, AIncludeParams);
+end;
+
+class function TRequestICS.New: IRequest;
+begin
+  Result := TRequestICS.Create;
+end;
+
+function TRequestICS.AddParam(const AName, AValue: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.RestParams.AddItem(AName, AValue);
+end;
+
+function TRequestICS.AddUrlSegment(const AName, AValue: string): IRequest;
+begin
+  Result := Self;
+  if AName.Trim.IsEmpty or AValue.Trim.IsEmpty then
+    Exit;
+  if not FullRequestURL(False).Contains(AName) then
+  begin
+    if (not ResourceSuffix.Trim.IsEmpty) and (not ResourceSuffix.EndsWith('/')) then
+      ResourceSuffix(ResourceSuffix + '/');
+    ResourceSuffix(ResourceSuffix + '{' + AName + '}');
+  end;
+  if FUrlSegments.IndexOf(AName) < 0 then
+    FUrlSegments.Add(Format('%s=%s', [AName, AValue]));
+end;
+
+function TRequestICS.ClearParams: IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.RestParams.Clear;
+end;
+
+function TRequestICS.ContentType: string;
+begin
+  Result := FSslHttpRest.ContentTypePost;
+end;
+
+function TRequestICS.ContentType(const AContentType: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.ContentTypePost := AContentType;
+end;
+
+function TRequestICS.AddBody(const AContent: TObject; const AOwns: Boolean): IRequest;
+var
+  LJSONObject: TJSONObject;
+begin
+  LJSONObject := TJson.ObjectToJsonObject(AContent);
+  try
+    Result := Self.AddBody(LJSONObject, False);
+  finally
+    LJSONObject.Free;
+    if AOwns then
+      AContent.Free;
+  end;
+end;
+
+function TRequestICS.CertFile(const APath: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.SslCliCert.LoadFromFile(APath);
+end;
+
+function TRequestICS.ClearBody: IRequest;
+begin
+  Result := Self;
+  FBodyRaw.Clear;
+end;
+
+function TRequestICS.AddBody(const AContent: TJSONArray; const AOwns: Boolean): IRequest;
+begin
+  Result := Self.AddBody(AContent.ToJSON);
+  if AOwns then
+    AContent.Free;
+end;
+
+function TRequestICS.AddBody(const AContent: TJSONObject; const AOwns: Boolean): IRequest;
+begin
+  Result := Self.AddBody(AContent.ToJSON);
+  if AOwns then
+    AContent.Free;
+end;
+
+function TRequestICS.ClearHeaders: IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.ExtraHeaders.Clear;
+end;
+
+function TRequestICS.Accept: string;
+begin
+  Result := FSslHttpRest.Accept;
+end;
+
+function TRequestICS.Accept(const AAccept: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.Accept := AAccept;
+end;
+
+function TRequestICS.AcceptCharset(const AAcceptCharset: string): IRequest;
+begin
+  Result := Self;
+  Self.AddHeader('Accept-Charset', AAcceptCharset);
+end;
+
+function TRequestICS.AcceptCharset: string;
+begin
+  Result := FSslHttpRest.ExtraHeaders.Values['Accept-Charset'];
+end;
+
+function TRequestICS.AcceptEncoding(const AAcceptEncoding: string): IRequest;
+begin
+  Result := Self;
+  Self.AddHeader('Accept-Encoding', AAcceptEncoding);
+end;
+
+function TRequestICS.AcceptEncoding: string;
+begin
+  Result := FSslHttpRest.ExtraHeaders.Values['Accept-Encoding'];
+end;
+
+function TRequestICS.BaseURL: string;
+begin
+  Result := FBaseURL;
+end;
+
+function TRequestICS.BaseURL(const ABaseURL: string): IRequest;
+begin
+  Result := Self;
+  FBaseURL := ABaseURL;
+end;
+
+function TRequestICS.BasicAuthentication(const AUsername, APassword: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.Username := AUsername;
+  FSslHttpRest.Password := APassword;
+  FSslHttpRest.ServerAuth := httpAuthBasic;
+end;
+
+constructor TRequestICS.Create;
+begin
+  FSslHttpRest := TSslHttpRest.Create(nil);
+  OverbyteIcsWSocket.LoadSsl;
+  FSslHttpRest.DebugLevel := DebugHdr;
+  FSslHttpRest.OnStateChange := DoStateChange;
+  FSslHttpRest.OnDocData := DoReceiveDataEvent;
+  FSslHttpRest.OnSendData := DoSendDataEvent;
+  FBodyRaw := TStringList.Create;
+  FUrlSegments := TStringList.Create;
+  FBodyRaw.LineBreak := '';
+  FRaiseExceptionOn500 := False;
+end;
+
+destructor TRequestICS.Destroy;
+begin
+  OverbyteIcsWSocket.UnloadSsl;
+  FreeAndNil(FSslHttpRest);
+  FreeAndNil(FBodyRaw);
+  FreeAndNil(FUrlSegments);
+  inherited;
+end;
+
+procedure TRequestICS.DoAfterExecute;
+var
+  LAdapter: IRequestAdapter;
+begin
+  if Assigned(FOnAfterExecute) then
+    FOnAfterExecute(Self, FResponse);
+  for LAdapter in FAdapters do
+    LAdapter.Execute(FResponse.Content);
+end;
+
+procedure TRequestICS.DoBeforeExecute;
+begin
+  if Assigned(FOnBeforeExecute) then
+    FOnBeforeExecute(Self);
+end;
+
+procedure TRequestICS.DoReceiveDataEvent(Sender: TObject; Buffer: Pointer;
+  Len: Integer);
+var
+  LIsProgressAbort: Boolean;
+begin
+  LIsProgressAbort := False;
+  if Assigned(FOnReceiveProgress) then
+  begin
+    FProgressCurrent := FProgressCurrent + Len;
+    FOnReceiveProgress(FSslHttpRest.ContentLength, FProgressCurrent, LIsProgressAbort);
+  end;
+  if LIsProgressAbort then
+    TThread.Queue(nil,
+      procedure
+      begin
+        FSslHttpRest.Abort;
+      end);
+end;
+
+procedure TRequestICS.DoSendDataEvent(Sender: TObject; Buffer: Pointer;
+  Len: Integer);
+var
+  LIsProgressAbort: Boolean;
+begin
+  LIsProgressAbort := False;
+  if Assigned(FOnSendProgress) then
+  begin
+    FProgressCurrent := FProgressCurrent + Len;
+    FOnSendProgress(FSslHttpRest.SendStream.Size, FProgressCurrent, LIsProgressAbort);
+  end;
+  if LIsProgressAbort then
+  begin
+    TThread.Queue(nil,
+      procedure
+      begin
+        // Suppressing errors while aborting is necessary because SslHttpRest
+        // does not except abort while POSTING, and raise a sending exception
+        FSslHttpRest.CtrlSocket.ComponentOptions := FSslHttpRest.CtrlSocket.ComponentOptions + [TWSocketOption.wsoNoSendException];
+        FSslHttpRest.Abort;
+      end);
+   end;
+end;
+
+procedure TRequestICS.DoStateChange(Sender: TObject);
+begin
+  if (not (Sender is TSslHttpRest)) then
+    Exit;
+  case TSslHttpRest(Sender).State of
+    httpConnected:
+      FProgressCurrent := 0;
+  end;
+end;
+
+procedure TRequestICS.ExecuteRequest(const AMethod: TMethodRequest);
+var
+  LAttempts: Integer;
+begin
+  LAttempts := FRetries + 1;
+  while LAttempts > 0 do
+  begin
+    try
+      Self.DoBeforeExecute;
+      case AMethod of
+        mrGET:
+          FSslHttpRest.RestRequest(httpGET, (MakeURL), False);
+        mrPOST:
+          FSslHttpRest.RestRequest(httpPOST, (MakeURL), False, FBodyRaw.Text);
+        mrPUT:
+          FSslHttpRest.RestRequest(httpPUT, (MakeURL), False, FBodyRaw.Text);
+        mrPATCH:
+          FSslHttpRest.RestRequest(httpPATCH, (MakeURL), False, FBodyRaw.Text);
+        mrDELETE:
+          FSslHttpRest.RestRequest(httpDELETE, (MakeURL), False, FBodyRaw.Text);
+      end;
+      if FRaiseExceptionOn500 and (FSslHttpRest.StatusCode >= 500) then
+        raise Exception.CreateFmt('HTTP protocol error. Status Code: %d. %s', [FSslHttpRest.StatusCode, FSslHttpRest.ReasonPhrase]);
+      LAttempts := 0;
+      Self.DoAfterExecute;
+    except
+      begin
+        LAttempts := LAttempts - 1;
+        if LAttempts = 0 then
+          raise;
+      end;
+    end;
+  end;
+end;
+
+function TRequestICS.Resource: string;
+begin
+  Result := FResource;
+end;
+
+function TRequestICS.Resource(const AResource: string): IRequest;
+begin
+  Result := Self;
+  FResource := AResource;
+end;
+
+function TRequestICS.ResourceSuffix(const AResourceSuffix: string): IRequest;
+begin
+  Result := Self;
+  FResourceSuffix := AResourceSuffix;
+end;
+
+function TRequestICS.ResourceSuffix: string;
+begin
+  Result := FResourceSuffix;
+end;
+
+function TRequestICS.Retry(const ARetries: Integer): IRequest;
+begin
+  Result := Self;
+  FRetries := ARetries;
+end;
+
+function TRequestICS.Timeout: Integer;
+begin
+  Result := FSslHttpRest.Timeout;
+end;
+
+function TRequestICS.Timeout(const ATimeout: Integer): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.Timeout := ATimeout;
+end;
+
+function TRequestICS.UserAgent(const AName: string): IRequest;
+begin
+  Result := Self;
+  FSslHttpRest.Agent := AName;
+end;
+
+function TRequestICS.GetAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'GET', ACallback).Start;
+end;
+
+function TRequestICS.PostAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'POST', ACallback).Start;
+end;
+
+function TRequestICS.PutAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'PUT', ACallback).Start;
+end;
+
+function TRequestICS.DeleteAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'DELETE', ACallback).Start;
+end;
+
+function TRequestICS.PatchAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'PATCH', ACallback).Start;
+end;
+
+end.

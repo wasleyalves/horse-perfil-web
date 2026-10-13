@@ -1,0 +1,927 @@
+unit RESTRequest4D.Request.Indy;
+
+{$IFDEF FPC}
+  {$mode delphi}
+{$ENDIF}
+
+interface
+
+uses RESTRequest4D.Request.Contract, RESTRequest4D.Response.Contract, IdHTTP, IdSSLOpenSSL, IdCTypes, IdSSLOpenSSLHeaders,
+  RESTRequest4D.Utils, RESTRequest4D.Request.Adapter.Contract, IdMultipartFormData, IdComponent,
+  {$IFDEF FPC}
+    DB, Classes, fpjson, jsonparser, fpjsonrtti, SysUtils;
+  {$ELSE}
+    Data.DB, System.Classes, System.JSON, System.SysUtils, REST.Json;
+  {$ENDIF}
+
+type
+  TRequestIndy = class(TInterfacedObject, IRequest)
+  private
+    FXWwwFormData: TStringList;
+    FIdMultiPartFormDataStream: TIdMultiPartFormDataStream;
+    FHeaders: TStrings;
+    FParams: TStrings;
+    FUrlSegments: TStrings;
+    FIdHTTP: TIdHTTP;
+    FIdSSLIOHandlerSocketOpenSSL: TIdSSLIOHandlerSocketOpenSSL;
+    FBaseURL: string;
+    FResource: string;
+    FResourceSuffix: string;
+    FAdapters: TArray<IRequestAdapter>;
+    FResponse: IResponse;
+    FStreamSend: TStream;
+    FStreamResult: TStringStream;
+    FRetries: Integer;
+    FProgressContentLength: Int64;
+    FOnBeforeExecute: TRR4DCallbackOnBeforeExecute;
+    FOnAfterExecute: TRR4DCallbackOnAfterExecute;
+    FOnReceiveProgress: TRR4DCallbackOnProgress;
+    FOnSendProgress: TRR4DCallbackOnProgress;
+    procedure ExecuteRequest(const AMethod: TMethodRequest);
+    function AcceptEncoding: string; overload;
+    function AcceptEncoding(const AAcceptEncoding: string): IRequest; overload;
+    function AcceptCharset: string; overload;
+    function AcceptCharset(const AAcceptCharset: string): IRequest; overload;
+    function Accept: string; overload;
+    function Accept(const AAccept: string): IRequest; overload;
+    function Timeout: Integer; overload;
+    function Timeout(const ATimeout: Integer): IRequest; overload;
+    function Adapters(const AAdapter: IRequestAdapter): IRequest; overload;
+    function Adapters(const AAdapters: TArray<IRequestAdapter>): IRequest; overload;
+    function Adapters: TArray<IRequestAdapter>; overload;
+    function BaseURL(const ABaseURL: string): IRequest; overload;
+    function BaseURL: string; overload;
+    function Resource(const AResource: string): IRequest; overload;
+    function RaiseExceptionOn500: Boolean; overload;
+    function RaiseExceptionOn500(const ARaiseException: Boolean): IRequest; overload;
+    function Resource: string; overload;
+    function ResourceSuffix(const AResourceSuffix: string): IRequest; overload;
+    function ResourceSuffix: string; overload;
+    function Token(const AToken: string): IRequest;
+    function TokenBearer(const AToken: string): IRequest;
+    function BasicAuthentication(const AUsername, APassword: string): IRequest;
+    function Retry(const ARetries: Integer): IRequest;
+    function OnBeforeExecute(const AOnBeforeExecute: TRR4DCallbackOnBeforeExecute): IRequest;
+    function OnAfterExecute(const AOnAfterExecute: TRR4DCallbackOnAfterExecute): IRequest;
+    function OnReceiveProgress(const AOnProgress: TRR4DCallbackOnProgress): IRequest;
+    function OnSendProgress(const AOnProgress: TRR4DCallbackOnProgress): IRequest;
+    function Get: IResponse;
+    function Post: IResponse;
+    function Put: IResponse;
+    function Delete: IResponse;
+    function Patch: IResponse;
+    function Options: IResponse;
+    function Head: IResponse;
+    function Trace: IResponse;
+    function GetAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function PostAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function PutAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function DeleteAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function PatchAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+    function FullRequestURL(const AIncludeParams: Boolean = True): string;
+    function ClearBody: IRequest;
+    function AddBody(const AContent: string): IRequest; overload;
+    function AddBody(const AContent: TJSONObject; const AOwns: Boolean = True): IRequest; overload;
+    function AddBody(const AContent: TJSONArray; const AOwns: Boolean = True): IRequest; overload;
+    function AddBody(const AContent: TObject; const AOwns: Boolean = True): IRequest; overload;
+    function AddBody(const AContent: TStream; const AOwns: Boolean = True): IRequest; overload;
+    function AddUrlSegment(const AName, AValue: string): IRequest;
+    function ClearHeaders: IRequest;
+    function AddHeader(const AName, AValue: string): IRequest;
+    function ClearParams: IRequest;
+    function ContentType(const AContentType: string): IRequest; overload;
+    function ContentType: string; overload;
+    function UserAgent(const AName: string): IRequest;
+    function AddCookies(const ACookies: TStrings): IRequest;
+    function AddCookie(const ACookieName, ACookieValue: string): IRequest;
+    function AddParam(const AName, AValue: string): IRequest;
+    function AddField(const AFieldName: string; const AValue: string): IRequest;
+    function AddFieldFormData(const AFieldName: string; const AValue: string): IRequest;
+    function AddFieldXWwwForm(const AFieldName: string; const AValue: string): IRequest;
+    function AddText(const AFieldName: string; const AContent: string; const AContentType: string = ''): IRequest;
+    function AddFile(const AFieldName: string; const AFileName: string; const AContentType: string = ''): IRequest; overload;
+    function AddFile(const AFieldName: string; const AValue: TStream; const AFileName: string = ''; const AContentType: string = ''): IRequest; overload;
+    function MakeURL(const AIncludeParams: Boolean = True): string;
+    function Proxy(const AServer, APassword, AUsername: string; const APort: Integer): IRequest;
+    function DeactivateProxy: IRequest;
+    function CertFile(const APath: string): IRequest;
+    function KeyFile(const APath: string): IRequest;
+    function HTTPOptions(const AHTTPOptions: TIdHTTPOptions): IRequest;
+    procedure OnStatusInfoEx(ASender: TObject; const AsslSocket: PSSL; const AWhere, Aret: TIdC_INT; const AType, AMsg: string);
+  protected
+    procedure DoBeforeExecute; virtual;
+    procedure DoAfterExecute; virtual;
+
+    procedure DoWork(ASender: TObject; AWorkMode: TWorkMode; AWorkCount: Int64); virtual;
+    procedure DoWorkBegin(ASender: TObject; AWorkMode: TWorkMode; AWorkCountMax: Int64); virtual;
+  public
+    constructor Create;
+    class function New: IRequest;
+    destructor Destroy; override;
+  end;
+
+implementation
+
+uses RESTRequest4D.Response.Indy, IdURI, IdCookieManager, IdCompressorZLib;
+
+function TRequestIndy.AddField(const AFieldName: string; const AValue: string): IRequest;
+var
+  LField: TIdFormDataField;
+begin
+  Result := Self;
+  LField := FIdMultiPartFormDataStream.AddFormField(AFieldName, AValue, '', '');
+  if Assigned(LField) then
+    LField.ContentTransfer := '8bit';
+end;
+
+function TRequestIndy.AddFieldFormData(const AFieldName, AValue: string): IRequest;
+begin
+  Result := Self;
+  FIdMultiPartFormDataStream.AddFormField(AFieldName, AValue, EmptyStr, ' ').ContentTransfer:= '8bit';
+end;
+
+function TRequestIndy.AddFieldXWwwForm(const AFieldName, AValue: string): IRequest;
+begin
+  Result := Self;
+  if not Assigned(FXWwwFormData) then
+    FXWwwFormData := TStringList.Create;
+  FXWwwFormData.Add(Format('%s=%s', [AFieldName, AValue]));
+end;
+
+function TRequestIndy.AddFile(const AFieldName: string; const AFileName: string; const AContentType: string): IRequest;
+begin
+  Result := Self;
+  if not FileExists(AFileName) then
+    Exit;
+  FIdMultiPartFormDataStream.AddFile(AFieldName, AFileName, AContentType);
+end;
+
+function TRequestIndy.AddFile(const AFieldName: string; const AValue: TStream; const AFileName: string; const AContentType: string): IRequest;
+var
+  lFileName: string;
+begin
+  Result := Self;
+  if not Assigned(AValue) then
+    Exit;
+  lFileName := Trim(AFileName);
+  if (lFileName = EmptyStr) then
+    lFileName := AFieldName;
+  AValue.Position := 0;
+  FIdMultiPartFormDataStream.AddFormField(AFieldName, AContentType, EmptyStr, AValue, lFileName);
+end;
+
+function TRequestIndy.AddBody(const AContent: TStream; const AOwns: Boolean): IRequest;
+begin
+  Result := Self;
+  try
+    if not Assigned(FStreamSend) then
+      FStreamSend := TStringStream.Create;
+    TStringStream(FStreamSend).CopyFrom(AContent, AContent.Size);
+    FStreamSend.Position := 0;
+  finally
+    if AOwns then
+    begin
+      {$IF DEFINED(MSWINDOWS) OR DEFINED(FPC)}
+        AContent.Free;
+      {$ELSE}
+        AContent.DisposeOf;
+      {$ENDIF}
+    end;
+  end;
+end;
+
+function TRequestIndy.AddCookies(const ACookies: TStrings): IRequest;
+var
+  LURI: TIdURI;
+begin
+  Result := Self;
+  LURI := TIdURI.Create(MakeURL(False));
+  try
+    if not Assigned(FIdHTTP.CookieManager) then
+      FIdHTTP.CookieManager := TIdCookieManager.Create(FIdHTTP);
+    FIdHTTP.CookieManager.AddServerCookies(ACookies, LURI);
+  finally
+    {$IF DEFINED(MSWINDOWS) OR DEFINED(FPC)}
+      ACookies.Free;
+    {$ELSE}
+      ACookies.DisposeOf;
+    {$ENDIF}
+    LURI.Free;
+  end;
+end;
+
+function TRequestIndy.AddCookie(const ACookieName, ACookieValue: string): IRequest;
+var
+  cookies: TStringList;
+begin
+  cookies := TStringList.Create;
+  try
+    {$IFDEF FPC}
+      cookies.Values[ACookieName] := ACookieValue;
+    {$ELSE}
+      {$IF COMPILERVERSION <= 28.0}
+        cookies.Values[ACookieName] := ACookieValue;
+      {$ELSE}
+        cookies.AddPair(ACookieName, ACookieValue);
+      {$ENDIF}
+    {$ENDIF}
+  Result := AddCookies(cookies);
+  except
+    cookies.Free;
+    raise;
+  end;
+end;
+
+function TRequestIndy.RaiseExceptionOn500: Boolean;
+begin
+  Result := not (hoNoProtocolErrorException in FIdHTTP.HTTPOptions);
+end;
+
+function TRequestIndy.RaiseExceptionOn500(const ARaiseException: Boolean): IRequest;
+begin
+  Result := Self;
+  if ARaiseException then
+    FIdHTTP.HTTPOptions := FIdHTTP.HTTPOptions - [hoNoProtocolErrorException]
+  else
+    FIdHTTP.HTTPOptions := FIdHTTP.HTTPOptions + [hoNoProtocolErrorException];
+end;
+
+function TRequestIndy.Adapters(const AAdapter: IRequestAdapter): IRequest;
+begin
+  Result := Adapters([AAdapter]);
+end;
+
+function TRequestIndy.Adapters(const AAdapters: TArray<IRequestAdapter>): IRequest;
+begin
+  FAdapters := AAdapters;
+  Result := Self;
+end;
+
+function TRequestIndy.Adapters: TArray<IRequestAdapter>;
+begin
+  Result := FAdapters;
+end;
+
+procedure TRequestIndy.DoBeforeExecute;
+begin
+  if Assigned(FOnBeforeExecute) then
+    FOnBeforeExecute(Self);
+end;
+
+procedure TRequestIndy.DoWork(ASender: TObject; AWorkMode: TWorkMode;
+  AWorkCount: Int64);
+var
+  LIsProgressAbort: Boolean;
+  LProgressMode: string;
+begin
+  LIsProgressAbort := False;
+  case AWorkMode of
+    wmRead:
+      begin
+        LProgressMode := 'Download';
+        if Assigned(FOnReceiveProgress) then
+          FOnReceiveProgress(FProgressContentLength, AWorkCount, LIsProgressAbort);
+      end;
+    wmWrite:
+      begin
+        LProgressMode := 'Upload';
+        if Assigned(FOnSendProgress) then
+          FOnSendProgress(FProgressContentLength, AWorkCount, LIsProgressAbort);
+      end;
+  end;
+  if LIsProgressAbort then
+    raise EAbort.Create(ClassName + ' ' + LProgressMode + ' Progress aborted');
+end;
+
+procedure TRequestIndy.DoWorkBegin(ASender: TObject; AWorkMode: TWorkMode;
+  AWorkCountMax: Int64);
+begin
+  FProgressContentLength := AWorkCountMax;
+end;
+
+procedure TRequestIndy.DoAfterExecute;
+var
+  LAdapter: IRequestAdapter;
+begin
+  if Assigned(FOnAfterExecute) then
+    FOnAfterExecute(Self, FResponse);
+  for LAdapter in FAdapters do
+    LAdapter.Execute(FResponse.Content);
+end;
+
+procedure TRequestIndy.ExecuteRequest(const AMethod: TMethodRequest);
+var
+  LAttempts: Integer;
+begin
+  FStreamResult.Size := 0;
+  if not FBaseURL.ToUpper.Trim.StartsWith('HTTPS') then
+    FIdHTTP.IOHandler := nil
+  else
+    FIdHTTP.IOHandler := FIdSSLIOHandlerSocketOpenSSL;
+  LAttempts := FRetries + 1;
+  while LAttempts > 0 do
+  begin
+    try
+      Self.DoBeforeExecute;
+      case AMethod of
+        mrGET:
+          FIdHTTP.Get(TIdURI.URLEncode(MakeURL), FStreamResult);
+        mrPOST:
+        begin
+          if (Assigned(FIdMultiPartFormDataStream) and (FIdMultiPartFormDataStream.Size > 0)) then
+            FIdHTTP.Post(TIdURI.URLEncode(MakeURL), FIdMultiPartFormDataStream, FStreamResult)
+          else if Assigned(FXWwwFormData) then
+            FIdHTTP.Post(TIdURI.URLEncode(MakeURL), FXWwwFormData, FStreamResult)
+          else
+            FIdHTTP.Post(TIdURI.URLEncode(MakeURL), FStreamSend, FStreamResult);
+        end;
+        mrPUT:
+        begin
+          if (Assigned(FIdMultiPartFormDataStream) and (FIdMultiPartFormDataStream.Size > 0)) then
+            raise Exception.Create('Method Put not supported multipart/form-data.')
+          else if Assigned(FXWwwFormData) then
+            raise Exception.Create('Method Put not supported x-www-form-urlencoded.')
+          else
+            FIdHTTP.Put(TIdURI.URLEncode(MakeURL), FStreamSend, FStreamResult);
+        end;
+        mrPATCH:
+          FIdHTTP.Patch(TIdURI.URLEncode(MakeURL), FStreamSend, FStreamResult);
+        mrDELETE:
+          FIdHTTP.Delete(TIdURI.URLEncode(MakeURL), FStreamResult);
+        mrOPTIONS:
+          FIdHTTP.Options(TIdURI.URLEncode(MakeURL), FStreamResult);
+        mrHEAD:
+          FIdHTTP.Head(TIdURI.URLEncode(MakeURL));
+        mrTRACE:
+          FIdHTTP.Trace(TIdURI.URLEncode(MakeURL), FStreamResult);
+      end;
+      LAttempts := 0;
+      Self.DoAfterExecute;
+    except
+      begin
+        LAttempts := LAttempts - 1;
+        if LAttempts = 0 then
+          raise;
+      end;
+    end;
+  end;
+end;
+
+function TRequestIndy.Patch: IResponse;
+var
+  LResponseObj: TResponseIndy;
+begin
+  LResponseObj := TResponseIndy.Create(Self, FIdHTTP, FStreamResult);
+  FResponse := LResponseObj;
+  Result := FResponse;
+  try
+    ExecuteRequest(mrPATCH);
+    LResponseObj.UpdateResponseData;
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestIndy.Put: IResponse;
+var
+  LResponseObj: TResponseIndy;
+begin
+  LResponseObj := TResponseIndy.Create(Self, FIdHTTP, FStreamResult);
+  FResponse := LResponseObj;
+  Result := FResponse;
+  try
+    ExecuteRequest(mrPUT);
+    LResponseObj.UpdateResponseData;
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestIndy.Post: IResponse;
+var
+  LResponseObj: TResponseIndy;
+begin
+  LResponseObj := TResponseIndy.Create(Self, FIdHTTP, FStreamResult);
+  FResponse := LResponseObj;
+  Result := FResponse;
+  try
+    ExecuteRequest(mrPOST);
+    LResponseObj.UpdateResponseData;
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestIndy.Proxy(const AServer, APassword, AUsername: string; const APort: Integer): IRequest;
+begin
+  Result := Self;
+  FIdHTTP.ProxyParams.ProxyServer := AServer;
+  FIdHTTP.ProxyParams.ProxyPassword := APassword;
+  FIdHTTP.ProxyParams.ProxyUsername := AUsername;
+  FIdHTTP.ProxyParams.ProxyPort := APort;
+end;
+
+function TRequestIndy.Get: IResponse;
+var
+  LResponseObj: TResponseIndy;
+begin
+  LResponseObj := TResponseIndy.Create(Self, FIdHTTP, FStreamResult);
+  FResponse := LResponseObj;
+  Result := FResponse;
+  try
+    ExecuteRequest(mrGET);
+    LResponseObj.UpdateResponseData;
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestIndy.Head: IResponse;
+var
+  LResponseObj: TResponseIndy;
+begin
+  LResponseObj := TResponseIndy.Create(Self, FIdHTTP, FStreamResult);
+  FResponse := LResponseObj;
+  Result := FResponse;
+  try
+    ExecuteRequest(mrHEAD);
+    LResponseObj.UpdateResponseData;
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestIndy.HTTPOptions(const AHTTPOptions: TIdHTTPOptions): IRequest;
+begin
+  Result := Self;
+  FIdHTTP.HTTPOptions := AHTTPOptions;
+end;
+
+function TRequestIndy.DeactivateProxy: IRequest;
+begin
+  Result := Self;
+  FIdHTTP.ProxyParams.ProxyServer := EmptyStr;
+  FIdHTTP.ProxyParams.ProxyPassword := EmptyStr;
+  FIdHTTP.ProxyParams.ProxyUsername := EmptyStr;
+  FIdHTTP.ProxyParams.ProxyPort := 0;
+end;
+
+function TRequestIndy.CertFile(const APath: string): IRequest;
+begin
+  Result := Self;
+  FIdSSLIOHandlerSocketOpenSSL.SSLOptions.CertFile := APath;
+end;
+
+function TRequestIndy.KeyFile(const APath: string): IRequest;
+begin
+  Result := Self;
+  FIdSSLIOHandlerSocketOpenSSL.SSLOptions.KeyFile := APath;
+end;
+
+function TRequestIndy.Delete: IResponse;
+var
+  LResponseObj: TResponseIndy;
+begin
+  LResponseObj := TResponseIndy.Create(Self, FIdHTTP, FStreamResult);
+  FResponse := LResponseObj;
+  Result := FResponse;
+  try
+    ExecuteRequest(mrDELETE);
+    LResponseObj.UpdateResponseData;
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestIndy.AddBody(const AContent: string): IRequest;
+begin
+  Result := Self;
+  if not Assigned(FStreamSend) then
+    FStreamSend := TStringStream.Create(AContent, TEncoding.UTF8)
+  else
+    TStringStream(FStreamSend).WriteString(AContent);
+  FStreamSend.Position := 0;
+end;
+
+function TRequestIndy.AddHeader(const AName, AValue: string): IRequest;
+begin
+  Result := Self;
+  if AName.Trim.IsEmpty or AValue.Trim.IsEmpty then
+    Exit;
+  if FHeaders.IndexOf(AName) < 0 then
+    FHeaders.Add(AName)
+  else if FIdHTTP.Request.CustomHeaders.IndexOfName(AName) >= 0 then       
+  begin // remove from Indy Headers to be re-added
+    FIdHTTP.Request.CustomHeaders.Delete(FIdHTTP.Request.CustomHeaders.IndexOfName(AName));
+  end;
+  FIdHTTP.Request.CustomHeaders.Values[AName] := AValue;
+end;
+
+function TRequestIndy.Token(const AToken: string): IRequest;
+begin
+  Result := Self;
+  Self.AddHeader('Authorization', AToken);
+end;
+
+function TRequestIndy.TokenBearer(const AToken: string): IRequest;
+begin
+  Result := Self;
+  Self.AddHeader('Authorization', 'Bearer ' + AToken);
+end;
+
+function TRequestIndy.Trace: IResponse;
+var
+  LResponseObj: TResponseIndy;
+begin
+  LResponseObj := TResponseIndy.Create(Self, FIdHTTP, FStreamResult);
+  FResponse := LResponseObj;
+  Result := FResponse;
+  try
+    ExecuteRequest(mrTRACE);
+    LResponseObj.UpdateResponseData;
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestIndy.FullRequestURL(const AIncludeParams: Boolean): string;
+begin
+  Result := Self.MakeURL(AIncludeParams);
+end;
+
+function TRequestIndy.MakeURL(const AIncludeParams: Boolean): string;
+begin
+  Result := TR4DUtils.BuildURL(FBaseURL, FResource, FResourceSuffix, FUrlSegments, FParams, AIncludeParams);
+end;
+
+class function TRequestIndy.New: IRequest;
+begin
+  Result := TRequestIndy.Create;
+end;
+
+procedure TRequestIndy.OnStatusInfoEx(ASender: TObject; const AsslSocket: PSSL; const AWhere, Aret: TIdC_INT; const AType, AMsg: string);
+begin
+  if Assigned(AsslSocket) and Assigned(FIdHTTP) and (not FIdHTTP.URL.Host.IsEmpty) then
+    SSL_set_tlsext_host_name(AsslSocket, FIdHTTP.URL.Host);
+end;
+
+function TRequestIndy.Options: IResponse;
+var
+  LResponseObj: TResponseIndy;
+begin
+  LResponseObj := TResponseIndy.Create(Self, FIdHTTP, FStreamResult);
+  FResponse := LResponseObj;
+  Result := FResponse;
+  try
+    ExecuteRequest(mrOPTIONS);
+    LResponseObj.UpdateResponseData;
+  finally
+    FResponse := nil;
+  end;
+end;
+
+function TRequestIndy.AddParam(const AName, AValue: string): IRequest;
+begin
+  Result := Self;
+  if (not AName.Trim.IsEmpty) and (not AValue.Trim.IsEmpty) then
+    FParams.Add(AName + '=' + AValue);
+end;
+
+function TRequestIndy.AddText(const AFieldName, AContent,
+  AContentType: string): IRequest;
+begin
+  Result := Self;
+  FIdMultiPartFormDataStream.AddFormField(AFieldName, AContent, EmptyStr, AContentType).ContentTransfer:= '8bit';
+end;
+
+function TRequestIndy.AddUrlSegment(const AName, AValue: string): IRequest;
+begin
+  Result := Self;
+  if AName.Trim.IsEmpty or AValue.Trim.IsEmpty then
+    Exit;
+  if not FullRequestURL(False).Contains(AName) then
+  begin
+    if (not ResourceSuffix.Trim.IsEmpty) and (not ResourceSuffix.EndsWith('/')) then
+      ResourceSuffix(ResourceSuffix + '/');
+    ResourceSuffix(ResourceSuffix + '{' + AName + '}');
+  end;
+  if FUrlSegments.IndexOf(AName) < 0 then
+    FUrlSegments.Add(Format('%s=%s', [AName, AValue]));
+end;
+
+function TRequestIndy.ClearParams: IRequest;
+begin
+  Result := Self;
+  FParams.Clear;
+end;
+
+function TRequestIndy.ContentType: string;
+begin
+  Result := FIdHTTP.Request.CustomHeaders.Values['Content-Type'];
+end;
+
+function TRequestIndy.ContentType(const AContentType: string): IRequest;
+begin
+  Result := Self;
+  Self.AddHeader('Content-Type', AContentType);
+end;
+
+function TRequestIndy.AddBody(const AContent: TObject; const AOwns: Boolean): IRequest;
+var
+  LJSONObject: TJSONObject;
+  {$IFDEF FPC}
+    LJSONStreamer: TJSONStreamer;
+  {$ENDIF}
+begin
+  {$IFDEF FPC}
+    LJSONStreamer := TJSONStreamer.Create(NIL);
+    LJSONObject := LJSONStreamer.ObjectToJSON(AContent);
+  {$ELSE}
+    LJSONObject := TJson.ObjectToJsonObject(AContent);
+  {$ENDIF}
+  try
+    Result := Self.AddBody(LJSONObject, False);
+  finally
+    {$IFDEF FPC}
+      LJSONStreamer.Free;
+    {$ENDIF}
+    LJSONObject.Free;
+    if AOwns then
+    begin
+      {$IF DEFINED(MSWINDOWS) OR DEFINED(FPC)}
+        AContent.Free;
+      {$ELSE}
+        AContent.DisposeOf;
+      {$ENDIF}
+    end;
+  end;
+end;
+
+function TRequestIndy.ClearBody: IRequest;
+begin
+  Result := Self;
+  if Assigned(FStreamSend) then
+    FreeAndNil(FStreamSend);
+end;
+
+function TRequestIndy.AddBody(const AContent: TJSONArray; const AOwns: Boolean): IRequest;
+begin
+  {$IFDEF FPC}
+    Result := Self.AddBody(AContent.AsJSON);
+  {$ELSE}
+    Result := Self.AddBody(AContent.ToJSON);
+  {$ENDIF}
+  if AOwns then
+  begin
+    {$IF DEFINED(MSWINDOWS) OR DEFINED(FPC)}
+      AContent.Free;
+    {$ELSE}
+      AContent.DisposeOf;
+    {$ENDIF}
+  end;
+end;
+
+function TRequestIndy.AddBody(const AContent: TJSONObject; const AOwns: Boolean): IRequest;
+begin
+  {$IFDEF FPC}
+    Result := Self.AddBody(AContent.AsJSON);
+  {$ELSE}
+    Result := Self.AddBody(AContent.ToJSON);
+  {$ENDIF}
+  if AOwns then
+  begin
+    {$IF DEFINED(MSWINDOWS) OR DEFINED(FPC)}
+      AContent.Free;
+    {$ELSE}
+      AContent.DisposeOf;
+    {$ENDIF}
+  end;
+end;
+
+function TRequestIndy.ClearHeaders: IRequest;
+var
+  I: Integer;
+begin
+  Result := Self;
+  for I := 0 to Pred(FHeaders.Count) do
+    FIdHTTP.Request.CustomHeaders.Delete(FIdHTTP.Request.CustomHeaders.IndexOfName(FHeaders[I]));
+end;
+
+function TRequestIndy.Accept: string;
+begin
+  Result := FIdHTTP.Request.Accept;
+end;
+
+function TRequestIndy.Accept(const AAccept: string): IRequest;
+begin
+  Result := Self;
+  FIdHTTP.Request.Accept := AAccept;
+end;
+
+function TRequestIndy.AcceptCharset(const AAcceptCharset: string): IRequest;
+begin
+  Result := Self;
+  FIdHTTP.Request.AcceptCharSet := AAcceptCharset;
+end;
+
+function TRequestIndy.AcceptCharset: string;
+begin
+  Result := FIdHTTP.Request.AcceptCharSet;
+end;
+
+function TRequestIndy.AcceptEncoding(const AAcceptEncoding: string): IRequest;
+begin
+  Result := Self;
+  FIdHTTP.Request.AcceptEncoding := AAcceptEncoding;
+end;
+
+function TRequestIndy.AcceptEncoding: string;
+begin
+  Result := FIdHTTP.Request.AcceptEncoding;
+end;
+
+function TRequestIndy.BaseURL: string;
+begin
+  Result := FBaseURL;
+end;
+
+function TRequestIndy.BaseURL(const ABaseURL: string): IRequest;
+begin
+  Result := Self;
+  FBaseURL := ABaseURL;
+end;
+
+function TRequestIndy.BasicAuthentication(const AUsername, APassword: string): IRequest;
+begin
+  Result := Self;
+  FIdHTTP.Request.BasicAuthentication := True;
+  FIdHTTP.Request.Username := AUsername;
+  FIdHTTP.Request.Password := APassword;
+end;
+
+constructor TRequestIndy.Create;
+begin
+  FProgressContentLength := 0;
+
+  FIdHTTP := TIdHTTP.Create(nil);
+  FIdHTTP.Request.Connection := 'Keep-Alive';
+  FIdHTTP.Request.UserAgent := 'User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.96 Safari/537.36';
+  FIdHTTP.HandleRedirects := True;
+
+  // Native accepted encoding: gzip, deflate
+  FIdHTTP.Compressor := TIdCompressorZLib.Create(FIdHTTP);
+
+  FIdSSLIOHandlerSocketOpenSSL := TIdSSLIOHandlerSocketOpenSSL.Create;
+  FIdHTTP.IOHandler := FIdSSLIOHandlerSocketOpenSSL;
+
+  {$IFDEF FPC}
+     FIdSSLIOHandlerSocketOpenSSL.SSLOptions.SSLVersions := FIdSSLIOHandlerSocketOpenSSL.SSLOptions.SSLVersions +
+       [sslvSSLv2, sslvSSLv23, sslvSSLv3, sslvTLSv1, sslvTLSv1_1, sslvTLSv1_2];
+   {$ELSE}
+     {$IF COMPILERVERSION > 28.0}
+       FIdSSLIOHandlerSocketOpenSSL.SSLOptions.SSLVersions := FIdSSLIOHandlerSocketOpenSSL.SSLOptions.SSLVersions +
+         [sslvSSLv2, sslvSSLv23, sslvSSLv3, sslvTLSv1, sslvTLSv1_1, sslvTLSv1_2];
+     {$ELSE}
+       FIdSSLIOHandlerSocketOpenSSL.SSLOptions.SSLVersions := FIdSSLIOHandlerSocketOpenSSL.SSLOptions.SSLVersions +
+         [sslvTLSv1, sslvTLSv1_1, sslvTLSv1_2];
+     {$ENDIF}
+   {$ENDIF}
+
+  FIdSSLIOHandlerSocketOpenSSL.OnStatusInfoEx := Self.OnStatusInfoEx;
+
+  FHeaders := TStringList.Create;
+  FParams := TStringList.Create;
+  FUrlSegments := TStringList.Create;
+
+  FStreamResult := TStringStream.Create('', TEncoding.UTF8);
+  Self.ContentType('application/json');
+  FRetries := 0;
+  FIdMultiPartFormDataStream := TIdMultiPartFormDataStream.Create;
+  FIdHTTP.HTTPOptions:= [
+    hoKeepOrigProtocol,
+    hoWantProtocolErrorContent // This will force the Content when error 500 happens, not related with RaiseExceptionOn500
+    ];
+  FIdHTTP.OnWork := DoWork;
+  FIdHTTP.OnWorkBegin := DoWorkBegin;
+end;
+
+destructor TRequestIndy.Destroy;
+begin
+  FreeAndNil(FIdSSLIOHandlerSocketOpenSSL);
+  FreeAndNil(FIdHTTP);
+  if Assigned(FStreamSend) then
+    FreeAndNil(FStreamSend);
+  FreeAndNil(FHeaders);
+  FreeAndNil(FParams);
+  FreeAndNil(FUrlSegments);
+  FreeAndNil(FStreamResult);
+  if Assigned(FIdMultiPartFormDataStream) then
+    FreeAndNil(FIdMultiPartFormDataStream);
+  if Assigned(FXWwwFormData) then
+    FreeAndNil(FXWwwFormData);
+  inherited;
+end;
+
+function TRequestIndy.Resource: string;
+begin
+  Result := FResource;
+end;
+
+function TRequestIndy.Resource(const AResource: string): IRequest;
+begin
+  Result := Self;
+  FResource := AResource;
+end;
+
+function TRequestIndy.ResourceSuffix(const AResourceSuffix: string): IRequest;
+begin
+  Result := Self;
+  FResourceSuffix := AResourceSuffix;
+end;
+
+function TRequestIndy.ResourceSuffix: string;
+begin
+  Result := FResourceSuffix;
+end;
+
+function TRequestIndy.Retry(const ARetries: Integer): IRequest;
+begin
+  Result := Self;
+  FRetries := ARetries;
+end;
+
+function TRequestIndy.OnBeforeExecute(const AOnBeforeExecute: TRR4DCallbackOnBeforeExecute): IRequest;
+begin
+  Result := Self;
+  FOnBeforeExecute := AOnBeforeExecute;
+end;
+
+function TRequestIndy.OnReceiveProgress(
+  const AOnProgress: TRR4DCallbackOnProgress): IRequest;
+begin
+  Result := Self;
+  FOnReceiveProgress := AOnProgress;
+end;
+
+function TRequestIndy.OnSendProgress(
+  const AOnProgress: TRR4DCallbackOnProgress): IRequest;
+begin
+  Result := Self;
+  FOnSendProgress := AOnProgress;
+end;
+
+function TRequestIndy.OnAfterExecute(const AOnAfterExecute: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  FOnAfterExecute := AOnAfterExecute;
+end;
+
+function TRequestIndy.Timeout: Integer;
+begin
+  Result := FIdHTTP.ReadTimeout;
+end;
+
+function TRequestIndy.Timeout(const ATimeout: Integer): IRequest;
+begin
+  Result := Self;
+  FIdHTTP.ReadTimeout := ATimeout;
+  FIdHTTP.ConnectTimeout := ATimeout;
+end;
+
+function TRequestIndy.UserAgent(const AName: string): IRequest;
+begin
+  Result := Self;
+  FIdHTTP.Request.UserAgent := AName;
+end;
+
+function TRequestIndy.GetAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'GET', ACallback).Start;
+end;
+
+function TRequestIndy.PostAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'POST', ACallback).Start;
+end;
+
+function TRequestIndy.PutAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'PUT', ACallback).Start;
+end;
+
+function TRequestIndy.DeleteAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'DELETE', ACallback).Start;
+end;
+
+function TRequestIndy.PatchAsync(const ACallback: TRR4DCallbackOnAfterExecute): IRequest;
+begin
+  Result := Self;
+  TAsyncRequestThread.Create(Self, 'PATCH', ACallback).Start;
+end;
+
+end.
