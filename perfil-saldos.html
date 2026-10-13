@@ -355,6 +355,7 @@
       });
 
       renderizarTabela(filtrados);
+      renderizarCardsPorCor(todosRegistros);
     }
 
     // ===== Renderiza os cards com a quantidade total por cor =====
@@ -410,9 +411,6 @@
         (soma, r) => soma + (Number(campo(r, 'QUANTIDADE', 'quantidade')) || 0), 0
       );
       const ordenados = [...registros].sort(ordenarPorCorTamanho);
-
-      // Atualiza os cards com a quantidade por cor
-      renderizarCardsPorCor(ordenados);
 
       if (!registros.length) {
         corpoTabela.innerHTML =
