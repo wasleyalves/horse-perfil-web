@@ -117,6 +117,10 @@
     .stat-label { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
     .stat-value { display: block; font-size: 1.9rem; font-weight: 700; letter-spacing: -.02em; margin-top: 10px; }
     .stat-accent { position: absolute; left: 0; top: 0; height: 100%; width: 4px; background: linear-gradient(180deg, var(--c, var(--primary)), transparent); }
+    .stat-click { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .stat-click:hover { border-color: var(--primary); }
+    .stat-click:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(89, 183, 234, .18); }
+    .stat-click.is-active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(89, 183, 234, .35); }
 
     /* ===== Card / tabela ===== */
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
@@ -355,6 +359,10 @@
 
     // ===== Renderiza os cards com a quantidade total por cor =====
     function renderizarCardsPorCor(registros) {
+      const filtroCorAtual = normalizar(
+        document.querySelector('.filtro-coluna[data-campo="cor"]')?.value || ''
+      );
+
       // Agrupa a quantidade por cor (a grafia exibida é a do primeiro registro de cada cor)
       const porCor = new Map();
       registros.forEach((r) => {
@@ -375,8 +383,9 @@
         .map(({ nome, total }) => {
           const hex = corParaHex(nome);
           const rotulo = escapar(nome) || 'Sem cor';
+          const ativo = filtroCorAtual && normalizar(nome) === filtroCorAtual ? ' is-active' : '';
           return `
-        <article class="stat">
+        <article class="stat stat-click${ativo}" data-cor="${escapar(nome)}" role="button" tabindex="0" title="Filtrar pela cor ${rotulo}">
           <span class="stat-label"><span class="swatch"><i style="--sw:${hex}"></i>${rotulo}</span></span>
           <strong class="stat-value">${formatarNumero(total)}</strong>
           <span class="stat-accent" style="--c: ${hex}"></span>
@@ -478,6 +487,23 @@
 
     // ===== Filtros de coluna =====
     filtros.forEach((f) => f.addEventListener('input', aplicarFiltros));
+
+    // ===== Clicar no card aplica/limpa o filtro da coluna Cor =====
+    function filtrarPorCor(nome) {
+      const filtroCor = document.querySelector('.filtro-coluna[data-campo="cor"]');
+      if (!filtroCor) return;
+      filtroCor.value = normalizar(filtroCor.value) === normalizar(nome) ? '' : nome;
+      aplicarFiltros();
+    }
+    cardsCores.addEventListener('click', (e) => {
+      const card = e.target.closest('.stat-click');
+      if (card) filtrarPorCor(card.dataset.cor || '');
+    });
+    cardsCores.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const card = e.target.closest('.stat-click');
+      if (card) { e.preventDefault(); filtrarPorCor(card.dataset.cor || ''); }
+    });
 
     // ===== Carga inicial =====
     carregarSaldo();
