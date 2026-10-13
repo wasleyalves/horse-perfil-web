@@ -143,9 +143,11 @@
 
   <div id="status"></div>
 
+  <!-- Define window.API_ORIGIN conforme o ambiente -->
+  <script src="config.js"></script>
   <script>
     // ===== Configuração =====
-    const API_BASE = 'http://localhost:9000/perfil_list'; // endpoint de saldo do perfil
+    const API_BASE = `${window.API_ORIGIN}/perfil_list`; // endpoint de saldo do perfil
 
     // Lê o parâmetro "perfil" da URL (ex.: perfil-saldos.html?perfil=SU100)
     const parametros = new URLSearchParams(window.location.search);

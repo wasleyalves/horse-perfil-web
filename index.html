@@ -162,7 +162,7 @@
   <div class="container">
     <header>
       <h1>Perfil Especial</h1>
-      <p>Consumo da API Horse (Delphi) &mdash; <code>http://localhost:9000/perfil</code></p>
+      <p>Consumo da API Horse (Delphi) &mdash; <code id="endpointLabel">/perfil</code></p>
     </header>
 
     <!-- ===== Listagem (GET) ===== -->
@@ -197,9 +197,12 @@
 
   <div id="status"></div>
 
+  <!-- Define window.API_ORIGIN conforme o ambiente -->
+  <script src="config.js"></script>
   <script>
     // ===== Configuração =====
-    const API_BASE = 'http://localhost:9000/perfil'; // URL base da API Horse
+    const API_BASE = `${window.API_ORIGIN}/perfil`; // URL base da API Horse
+    document.getElementById('endpointLabel').textContent = `${API_BASE}`;
 
     const corpoTabela = document.getElementById('corpoTabela');
     const statusEl    = document.getElementById('status');
