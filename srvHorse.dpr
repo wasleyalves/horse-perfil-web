@@ -32,7 +32,8 @@ uses
   controllers.cores in 'controllers\controllers.cores.pas',
   dao.cores in 'dao\dao.cores.pas',
   controllers.perfil in 'controllers\controllers.perfil.pas',
-  dao.perfil in 'dao\dao.perfil.pas';
+  dao.perfil in 'dao\dao.perfil.pas',
+  controllers.figuras in 'controllers\controllers.figuras.pas';
 
 var
   LLogConsoleConfig : THorseLoggerConsoleConfig;
@@ -137,6 +138,7 @@ begin
   controllers.pedidos.Registry;
   controllers.cores.Registry;
   controllers.perfil.Registry;
+  controllers.figuras.Registry;
 
   //Configura o DataSet Serialize para pegar o padr�o do banco
   TDataSetSerializeConfig.GetInstance.CaseNameDefinition := cndNone;
