@@ -163,6 +163,20 @@
       background: rgba(89, 183, 234, .14); color: var(--primary-ink);
     }
 
+    /* Miniatura da figura */
+    .figura-cell { display: flex; align-items: center; gap: 10px; }
+    .thumb-link { display: inline-flex; }
+    .thumb {
+      width: 46px; height: 46px; object-fit: cover; border-radius: 8px;
+      border: 1px solid var(--border); background: #F0F2F5; display: block; flex: none;
+      transition: box-shadow .15s;
+    }
+    .thumb-link:hover .thumb { box-shadow: 0 0 0 2px rgba(89, 183, 234, .4); }
+    .figura-nome {
+      font-size: .78rem; color: var(--muted);
+      font-family: "Cascadia Code", Consolas, ui-monospace, monospace;
+    }
+
     .link-perfil { color: var(--primary-ink); font-weight: 600; text-decoration: none; }
     .link-perfil:hover { text-decoration: underline; }
 
@@ -394,8 +408,18 @@
         const v = valores(perfil);
         // A coluna Perfil é um link para a página de saldo do perfil
         const url = `perfil-saldos.html?perfil=${encodeURIComponent(v.perfil)}`;
-        const figura = normalizar(v.figura)
-          ? `<span class="pill">${escapar(v.figura)}</span>`
+        // Miniatura: a imagem é servida pela API Horse (rota /figura/:arquivo)
+        const temFigura = normalizar(v.figura) !== '';
+        const imgUrl = `${window.API_ORIGIN}/figura/${encodeURIComponent(v.figura)}`;
+        const figura = temFigura
+          ? `<span class="figura-cell">
+               <a class="thumb-link" href="${imgUrl}" target="_blank" rel="noopener">
+                 <img class="thumb" loading="lazy" src="${imgUrl}"
+                      alt="${escapar(v.figura)}" title="${escapar(v.figura)}"
+                      onerror="this.style.visibility='hidden'">
+               </a>
+               <span class="figura-nome">${escapar(v.figura)}</span>
+             </span>`
           : `<span style="color:var(--muted)">—</span>`;
         return `
           <tr>
