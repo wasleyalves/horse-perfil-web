@@ -96,7 +96,6 @@
 
     .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
     .topbar h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -.01em; }
-    .subtitle { color: var(--muted); font-size: .92rem; margin-top: 4px; }
 
     .btn {
       appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: .88rem;
@@ -211,7 +210,6 @@
       <header class="topbar">
         <div>
           <h1>Saldo do Perfil: <span id="nomePerfil">&mdash;</span></h1>
-          <p class="subtitle">Origem: <code id="urlApi">&mdash;</code></p>
         </div>
         <a class="btn ghost" href="index.html">&larr; Voltar para a lista</a>
       </header>
@@ -264,7 +262,6 @@
     const rodape      = document.getElementById('rodape');
     const statusEl    = document.getElementById('status');
     const nomePerfil  = document.getElementById('nomePerfil');
-    const urlApi      = document.getElementById('urlApi');
 
     const cardsCores = document.getElementById('cardsCores');
     const filtros     = document.querySelectorAll('.filtro-coluna');
@@ -438,7 +435,6 @@
       }
 
       nomePerfil.textContent = perfil;
-      urlApi.textContent = `${API_BASE}/${encodeURIComponent(perfil)}`;
       corpoTabela.innerHTML = '<tr><td colspan="7" class="vazio">Carregando...</td></tr>';
 
       try {

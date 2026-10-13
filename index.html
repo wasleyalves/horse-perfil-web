@@ -96,7 +96,6 @@
 
     .topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
     .topbar h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -.01em; }
-    .subtitle { color: var(--muted); font-size: .92rem; margin-top: 4px; }
 
     .btn {
       appearance: none; border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: .88rem;
@@ -220,7 +219,6 @@
       <header class="topbar">
         <div>
           <h1>Perfil Especial</h1>
-          <p class="subtitle">Consumo da API Stokalc &mdash; <code id="endpointLabel">/perfil</code></p>
         </div>
         <button class="btn ghost" id="btnRecarregar" type="button">Recarregar</button>
       </header>
@@ -263,7 +261,6 @@
   <script>
     // ===== Configuração =====
     const API_BASE = `${window.API_ORIGIN}/perfil`; // URL base da API Horse
-    document.getElementById('endpointLabel').textContent = `${API_BASE}`;
 
     const corpoTabela = document.getElementById('corpoTabela');
     const statusEl    = document.getElementById('status');
