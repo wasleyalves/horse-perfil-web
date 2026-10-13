@@ -231,7 +231,6 @@
           <table>
             <thead>
               <tr>
-                <th>Código<input class="filtro-coluna" data-campo="codigo" placeholder="Filtrar" /></th>
                 <th>Perfil<input class="filtro-coluna" data-campo="perfil" placeholder="Filtrar" /></th>
                 <th>Descrição<input class="filtro-coluna" data-campo="descricao" placeholder="Filtrar" /></th>
                 <th>Cor<input class="filtro-coluna" data-campo="cor" placeholder="Filtrar" /></th>
@@ -241,7 +240,7 @@
               </tr>
             </thead>
             <tbody id="corpoTabela">
-              <tr><td colspan="7" class="vazio">Carregando...</td></tr>
+              <tr><td colspan="6" class="vazio">Carregando...</td></tr>
             </tbody>
             <tfoot id="rodape"></tfoot>
           </table>
@@ -332,7 +331,6 @@
     // Extrai os valores padronizados de um registro de saldo
     function valoresSaldo(registro) {
       return {
-        codigo: campo(registro, 'COD_PERFIL_ESPECIAL', 'cod_perfil_especial'),
         perfil: campo(registro, 'PERFIL', 'perfil'),
         descricao: campo(registro, 'DSC_PERFIL', 'DESCRICAO', 'descricao'),
         cor: campo(registro, 'COR', 'cor'),
@@ -414,7 +412,7 @@
 
       if (!registros.length) {
         corpoTabela.innerHTML =
-          '<tr><td colspan="7" class="vazio">Nenhum registro encontrado.</td></tr>';
+          '<tr><td colspan="6" class="vazio">Nenhum registro encontrado.</td></tr>';
         rodape.innerHTML = '';
         return;
       }
@@ -423,7 +421,6 @@
         const cor = campo(r, 'COR', 'cor');
         return `
         <tr>
-          <td>${escapar(campo(r, 'COD_PERFIL_ESPECIAL', 'cod_perfil_especial'))}</td>
           <td>${escapar(campo(r, 'PERFIL', 'perfil'))}</td>
           <td>${escapar(campo(r, 'DSC_PERFIL', 'DESCRICAO', 'descricao'))}</td>
           <td><span class="swatch"><i style="--sw:${corParaHex(cor)}"></i>${escapar(cor) || '—'}</span></td>
@@ -436,7 +433,7 @@
       // Linha de total
       rodape.innerHTML = `
         <tr>
-          <td colspan="6">Total</td>
+          <td colspan="5">Total</td>
           <td class="numero">${formatarNumero(total)}</td>
         </tr>`;
     }
@@ -447,13 +444,13 @@
         nomePerfil.textContent = '—';
         cardsCores.innerHTML = '';
         corpoTabela.innerHTML =
-          '<tr><td colspan="7" class="vazio">Perfil não informado na URL.</td></tr>';
+          '<tr><td colspan="6" class="vazio">Perfil não informado na URL.</td></tr>';
         mostrarErro('Parâmetro "perfil" ausente na URL.');
         return;
       }
 
       nomePerfil.textContent = perfil;
-      corpoTabela.innerHTML = '<tr><td colspan="7" class="vazio">Carregando...</td></tr>';
+      corpoTabela.innerHTML = '<tr><td colspan="6" class="vazio">Carregando...</td></tr>';
 
       try {
         const resposta = await fetch(`${API_BASE}/${encodeURIComponent(perfil)}`, {
@@ -477,7 +474,7 @@
       } catch (erro) {
         cardsCores.innerHTML = '';
         corpoTabela.innerHTML =
-          `<tr><td colspan="7" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
+          `<tr><td colspan="6" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
         rodape.innerHTML = '';
         mostrarErro('Não foi possível conectar à API.');
       }
