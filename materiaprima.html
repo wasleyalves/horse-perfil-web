@@ -102,8 +102,8 @@
     }
     .card-head h2 { font-size: 1.05rem; font-weight: 650; }
 
-    .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .busca { position: relative; flex: 1 1 240px; min-width: 200px; }
+    .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; flex: 1; }
+    .busca { position: relative; flex: 0 1 340px; min-width: 220px; }
     .busca input {
       width: 100%; padding: 10px 12px 10px 36px; border: 1px solid var(--border);
       border-radius: 10px; font: inherit; font-size: .9rem; background: #FBFCFE;
@@ -217,7 +217,7 @@
         <div class="card-head">
           <h2>Produtos cadastrados</h2>
           <div class="toolbar">
-            <div class="busca-global-inline">
+            <div class="busca">
               <input type="search" id="buscaGeral" placeholder="Buscar em todas as colunas..." autocomplete="off" />
             </div>
             <div class="colunas">
