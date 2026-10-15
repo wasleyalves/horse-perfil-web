@@ -33,6 +33,8 @@ uses
   dao.cores in 'dao\dao.cores.pas',
   controllers.perfil in 'controllers\controllers.perfil.pas',
   dao.perfil in 'dao\dao.perfil.pas',
+  dao.materiaprima in 'dao\dao.materiaprima.pas',
+  controllers.materiaprima in 'controllers\controllers.materiaprima.pas',
   controllers.figuras in 'controllers\controllers.figuras.pas';
 
 var
@@ -138,6 +140,7 @@ begin
   controllers.pedidos.Registry;
   controllers.cores.Registry;
   controllers.perfil.Registry;
+  controllers.materiaprima.Registry;
   controllers.figuras.Registry;
 
   //Configura o DataSet Serialize para pegar o padr�o do banco
