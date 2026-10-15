@@ -213,9 +213,7 @@
             <thead>
               <tr>
                 <th>Código<input class="filtro-coluna" data-campo="codigo" placeholder="Filtrar" /></th>
-                <th>Cód. Barras<input class="filtro-coluna" data-campo="codbar" placeholder="Filtrar" /></th>
                 <th>Nome<input class="filtro-coluna" data-campo="nome" placeholder="Filtrar" /></th>
-                <th>Descrição<input class="filtro-coluna" data-campo="descricao" placeholder="Filtrar" /></th>
                 <th>Estoque<input class="filtro-coluna" data-campo="estoque" placeholder="Filtrar" /></th>
                 <th>Localização<input class="filtro-coluna" data-campo="localizacao" placeholder="Filtrar" /></th>
                 <th>Cor<input class="filtro-coluna" data-campo="cor" placeholder="Filtrar" /></th>
@@ -224,7 +222,7 @@
               </tr>
             </thead>
             <tbody id="corpoTabela">
-              <tr><td colspan="9" class="vazio">Carregando...</td></tr>
+              <tr><td colspan="7" class="vazio">Carregando...</td></tr>
             </tbody>
           </table>
         </div>
@@ -289,9 +287,7 @@
     function valores(item) {
       return {
         codigo:      item.COD_PRO ?? item.cod_pro ?? '',
-        codbar:      item.CODIGO_BARRA_PRO ?? item.codigobarra ?? '',
         nome:        item.NOME_PRO ?? item.nome ?? '',
-        descricao:   item.DESC_CUPOM ?? item.desc_cupom ?? '',
         estoque:     item.QUANT_ESTOQ ?? item.quant_estoq ?? '',
         localizacao: item.LOCALIZACAO ?? item.localizacao ?? '',
         cor:         item.COR ?? item.cor ?? '',
@@ -347,16 +343,14 @@
 
       if (!fatia.length) {
         corpoTabela.innerHTML =
-          '<tr><td colspan="9" class="vazio">Nenhum item encontrado.</td></tr>';
+          '<tr><td colspan="7" class="vazio">Nenhum item encontrado.</td></tr>';
       } else {
         corpoTabela.innerHTML = fatia.map((indice) => {
           const v = valores(todosItens[indice]);
           return `
             <tr>
               <td>${escapar(v.codigo)}</td>
-              <td>${escapar(v.codbar)}</td>
               <td>${escapar(v.nome)}</td>
-              <td>${escapar(v.descricao)}</td>
               <td>${escapar(v.estoque)}</td>
               <td>${escapar(v.localizacao)}</td>
               <td>${escapar(v.cor)}</td>
@@ -375,7 +369,7 @@
     }
 
     async function carregarItens() {
-      corpoTabela.innerHTML = '<tr><td colspan="9" class="vazio">Carregando...</td></tr>';
+      corpoTabela.innerHTML = '<tr><td colspan="7" class="vazio">Carregando...</td></tr>';
       try {
         const resposta = await fetch(API_BASE, {
           method: 'GET',
@@ -397,7 +391,7 @@
         aplicarFiltros();
       } catch (erro) {
         corpoTabela.innerHTML =
-          `<tr><td colspan="9" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
+          `<tr><td colspan="7" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
         contador.textContent = '';
         paginaInfo.textContent = '';
         mostrarErro('Não foi possível conectar à API.');
