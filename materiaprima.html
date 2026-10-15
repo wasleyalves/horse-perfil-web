@@ -382,6 +382,8 @@
         }).join('');
       }
 
+      const de  = total ? inicio + 1 : 0;
+      const ate = Math.min(inicio + POR_PAGINA, total);
       paginaInfo.textContent = `${de}-${ate} de ${total}`;
       btnAnterior.disabled = pagina <= 0;
       btnProxima.disabled  = pagina >= paginas - 1;
