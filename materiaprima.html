@@ -381,7 +381,7 @@
         }).join('');
       }
 
-      contador.textContent = '';
+      contador.textContent = `${total} de ${todosItens.length} registro(s)`;
       const de  = total ? inicio + 1 : 0;
       const ate = Math.min(inicio + POR_PAGINA, total);
       paginaInfo.textContent = `${de}-${ate} de ${total}`;
