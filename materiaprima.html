@@ -113,6 +113,22 @@
     .busca::before { content: "\1F50D"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: .85rem; opacity: .45; pointer-events: none; }
     .contador { color: var(--muted); font-size: .82rem; white-space: nowrap; }
 
+    .colunas { position: relative; }
+    .colunas-painel {
+      position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      box-shadow: var(--shadow); padding: 10px; min-width: 220px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .colunas-painel[hidden] { display: none; }
+    .colunas-painel small { color: var(--muted); font-size: .74rem; padding: 4px 8px 2px; text-transform: uppercase; letter-spacing: .06em; }
+    .colunas-item {
+      display: flex; align-items: center; gap: 8px; padding: 7px 8px;
+      border-radius: 8px; font-size: .88rem; cursor: pointer;
+    }
+    .colunas-item:hover { background: #F4F7FB; }
+    .colunas-item input { accent-color: var(--primary); width: 15px; height: 15px; }
+
     .tabela-wrapper { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: .9rem; }
     th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
@@ -204,6 +220,10 @@
             <div class="busca">
               <input type="search" id="buscaGeral" placeholder="Buscar em todas as colunas..." autocomplete="off" />
             </div>
+            <div class="colunas">
+              <button class="btn ghost" id="btnColunas" type="button">Colunas</button>
+              <div class="colunas-painel" id="colunasPainel" hidden></div>
+            </div>
             <span class="contador" id="contador">Carregando...</span>
           </div>
         </div>
@@ -211,18 +231,10 @@
         <div class="tabela-wrapper">
           <table>
             <thead>
-              <tr>
-                <th>Cód. Interno<input class="filtro-coluna" data-campo="codinterno" placeholder="Filtrar" /></th>
-                <th>Nome<input class="filtro-coluna" data-campo="nome" placeholder="Filtrar" /></th>
-                <th>Estoque<input class="filtro-coluna" data-campo="estoque" placeholder="Filtrar" /></th>
-                <th>Estoque Barra<input class="filtro-coluna" data-campo="estbarra" placeholder="Filtrar" /></th>
-                <th>Localização<input class="filtro-coluna" data-campo="localizacao" placeholder="Filtrar" /></th>
-                <th>Cor<input class="filtro-coluna" data-campo="cor" placeholder="Filtrar" /></th>
-                <th>Perfil<input class="filtro-coluna" data-campo="perfil" placeholder="Filtrar" /></th>
-              </tr>
+              <tr id="linhaCabecalho"></tr>
             </thead>
             <tbody id="corpoTabela">
-              <tr><td colspan="7" class="vazio">Carregando...</td></tr>
+              <tr><td colspan="8" class="vazio">Carregando...</td></tr>
             </tbody>
           </table>
         </div>
@@ -242,16 +254,32 @@
   <script>
     const API_BASE = `${window.API_ORIGIN}/materiaprima`;
 
-    const corpoTabela = document.getElementById('corpoTabela');
-    const statusEl    = document.getElementById('status');
-    const buscaGeral  = document.getElementById('buscaGeral');
-    const contador    = document.getElementById('contador');
-    const paginaInfo  = document.getElementById('paginaInfo');
-    const btnAnterior = document.getElementById('btnAnterior');
-    const btnProxima  = document.getElementById('btnProxima');
-    const filtros     = document.querySelectorAll('.filtro-coluna');
+    const corpoTabela    = document.getElementById('corpoTabela');
+    const linhaCabecalho = document.getElementById('linhaCabecalho');
+    const statusEl       = document.getElementById('status');
+    const buscaGeral     = document.getElementById('buscaGeral');
+    const contador       = document.getElementById('contador');
+    const paginaInfo     = document.getElementById('paginaInfo');
+    const btnAnterior    = document.getElementById('btnAnterior');
+    const btnProxima     = document.getElementById('btnProxima');
+    const btnColunas     = document.getElementById('btnColunas');
+    const colunasPainel  = document.getElementById('colunasPainel');
 
     const POR_PAGINA = 100;
+
+    const COLUNAS = [
+      { campo: 'codinterno',  label: 'Cód. Interno' },
+      { campo: 'nome',        label: 'Nome' },
+      { campo: 'estoque',     label: 'Estoque' },
+      { campo: 'estbarra',    label: 'Estoque Barra' },
+      { campo: 'localizacao', label: 'Localização' },
+      { campo: 'cor',         label: 'Cor' },
+      { campo: 'perfil',      label: 'Perfil' },
+      { campo: 'mercado',     label: 'Cód. Mercado' }
+    ];
+
+    const colunasOcultas = new Set();
+    let filtros = [];
 
     let todosItens      = [];
     let buscaNormalizada = [];
@@ -292,7 +320,8 @@
         estbarra:    item.ESTOQUE_BARRA ?? item.estoque_barra ?? '',
         localizacao: item.LOCALIZACAO ?? item.localizacao ?? '',
         cor:         item.COR ?? item.cor ?? '',
-        perfil:      item.PERFIL ?? item.perfil ?? ''
+        perfil:      item.PERFIL ?? item.perfil ?? '',
+        mercado:     item.CODIGOS_MERCADO ?? item.codigos_mercado ?? ''
       };
     }
 
@@ -343,20 +372,13 @@
 
       if (!fatia.length) {
         corpoTabela.innerHTML =
-          '<tr><td colspan="7" class="vazio">Nenhum item encontrado.</td></tr>';
+          `<tr><td colspan="${COLUNAS.length}" class="vazio">Nenhum item encontrado.</td></tr>`;
       } else {
         corpoTabela.innerHTML = fatia.map((indice) => {
           const v = valores(todosItens[indice]);
-          return `
-            <tr>
-              <td>${escapar(v.codinterno)}</td>
-              <td>${escapar(v.nome)}</td>
-              <td>${escapar(v.estoque)}</td>
-              <td>${escapar(v.estbarra)}</td>
-              <td>${escapar(v.localizacao)}</td>
-              <td>${escapar(v.cor)}</td>
-              <td>${escapar(v.perfil)}</td>
-            </tr>`;
+          const celulas = COLUNAS.map((c) =>
+            `<td data-coluna="${c.campo}">${escapar(v[c.campo])}</td>`).join('');
+          return `<tr>${celulas}</tr>`;
         }).join('');
       }
 
@@ -366,10 +388,60 @@
       paginaInfo.textContent = `${de}-${ate} de ${total}`;
       btnAnterior.disabled = pagina <= 0;
       btnProxima.disabled  = pagina >= paginas - 1;
+
+      aplicarVisibilidade();
+    }
+
+    function montarCabecalho() {
+      linhaCabecalho.innerHTML = COLUNAS.map((c) =>
+        `<th data-coluna="${c.campo}">${escapar(c.label)}` +
+        `<input class="filtro-coluna" data-campo="${c.campo}" placeholder="Filtrar" /></th>`
+      ).join('');
+
+      filtros = document.querySelectorAll('.filtro-coluna');
+      filtros.forEach((f) => f.addEventListener('input', aplicarFiltros));
+    }
+
+    function aplicarVisibilidade() {
+      document.querySelectorAll('[data-coluna]').forEach((el) => {
+        el.style.display = colunasOcultas.has(el.dataset.coluna) ? 'none' : '';
+      });
+    }
+
+    function carregarColunas() {
+      try {
+        const salvo = JSON.parse(localStorage.getItem('mp_colunas_ocultas') || '[]');
+        if (Array.isArray(salvo)) salvo.forEach((campo) => colunasOcultas.add(campo));
+      } catch (e) { }
+    }
+
+    function salvarColunas() {
+      try {
+        localStorage.setItem('mp_colunas_ocultas', JSON.stringify([...colunasOcultas]));
+      } catch (e) { }
+    }
+
+    function montarPainelColunas() {
+      colunasPainel.innerHTML =
+        '<small>Colunas visíveis</small>' +
+        COLUNAS.map((c) =>
+          `<label class="colunas-item">` +
+          `<input type="checkbox" data-campo="${c.campo}"${colunasOcultas.has(c.campo) ? '' : ' checked'} />` +
+          `${escapar(c.label)}</label>`
+        ).join('');
+
+      colunasPainel.querySelectorAll('input[type="checkbox"]').forEach((chk) => {
+        chk.addEventListener('change', () => {
+          if (chk.checked) colunasOcultas.delete(chk.dataset.campo);
+          else colunasOcultas.add(chk.dataset.campo);
+          salvarColunas();
+          aplicarVisibilidade();
+        });
+      });
     }
 
     async function carregarItens() {
-      corpoTabela.innerHTML = '<tr><td colspan="7" class="vazio">Carregando...</td></tr>';
+      corpoTabela.innerHTML = '<tr><td colspan="8" class="vazio">Carregando...</td></tr>';
       try {
         const resposta = await fetch(API_BASE, {
           method: 'GET',
@@ -391,7 +463,7 @@
         aplicarFiltros();
       } catch (erro) {
         corpoTabela.innerHTML =
-          `<tr><td colspan="7" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
+          `<tr><td colspan="8" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
         contador.textContent = '';
         paginaInfo.textContent = '';
         mostrarErro('Não foi possível conectar à API.');
@@ -399,7 +471,6 @@
     }
 
     buscaGeral.addEventListener('input', aplicarFiltros);
-    filtros.forEach((f) => f.addEventListener('input', aplicarFiltros));
     btnAnterior.addEventListener('click', () => {
       if (pagina > 0) { pagina -= 1; renderizar(); }
     });
@@ -408,6 +479,17 @@
       renderizar();
     });
     document.getElementById('btnRecarregar').addEventListener('click', carregarItens);
+
+    btnColunas.addEventListener('click', () => {
+      colunasPainel.hidden = !colunasPainel.hidden;
+    });
+    document.addEventListener('click', (ev) => {
+      if (!colunasPainel.hidden && !ev.target.closest('.colunas')) colunasPainel.hidden = true;
+    });
+
+    carregarColunas();
+    montarCabecalho();
+    montarPainelColunas();
 
     carregarItens();
   </script>
