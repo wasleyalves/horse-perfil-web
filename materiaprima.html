@@ -217,7 +217,7 @@
         <div class="card-head">
           <h2>Produtos cadastrados</h2>
           <div class="toolbar">
-            <div class="busca">
+            <div class="busca-global-inline">
               <input type="search" id="buscaGeral" placeholder="Buscar em todas as colunas..." autocomplete="off" />
             </div>
             <div class="colunas">
@@ -225,10 +225,6 @@
               <div class="colunas-painel" id="colunasPainel" hidden></div>
             </div>
           </div>
-        </div>
-
-        <div class="busca-global">
-          <input type="search" id="buscaGeral2" placeholder="Buscar em todas as colunas..." autocomplete="off" />
         </div>
 
         <div class="tabela-wrapper">
@@ -262,7 +258,6 @@
     const linhaCabecalho = document.getElementById('linhaCabecalho');
     const statusEl       = document.getElementById('status');
     const buscaGeral     = document.getElementById('buscaGeral');
-    const buscaGeral2    = document.getElementById('buscaGeral2');
     const contador       = document.getElementById('contador');
     const paginaInfo     = document.getElementById('paginaInfo');
     const btnAnterior    = document.getElementById('btnAnterior');
@@ -475,10 +470,6 @@
     }
 
     buscaGeral.addEventListener('input', aplicarFiltros);
-    if (buscaGeral2) buscaGeral2.addEventListener('input', function() {
-      buscaGeral.value = this.value;
-      aplicarFiltros();
-    });
     btnAnterior.addEventListener('click', () => {
       if (pagina > 0) { pagina -= 1; renderizar(); }
     });
