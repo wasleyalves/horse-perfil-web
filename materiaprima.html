@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Matéria-Prima - Listagem</title>
+  <title>Stokalc</title>
   <style>
     :root {
       --bg: #F7F8FA;
@@ -212,13 +212,13 @@
           <table>
             <thead>
               <tr>
-                <th>Código<input class="filtro-coluna" data-campo="codigo" placeholder="Filtrar" /></th>
+                <th>Cód. Interno<input class="filtro-coluna" data-campo="codinterno" placeholder="Filtrar" /></th>
                 <th>Nome<input class="filtro-coluna" data-campo="nome" placeholder="Filtrar" /></th>
                 <th>Estoque<input class="filtro-coluna" data-campo="estoque" placeholder="Filtrar" /></th>
+                <th>Estoque Barra<input class="filtro-coluna" data-campo="estbarra" placeholder="Filtrar" /></th>
                 <th>Localização<input class="filtro-coluna" data-campo="localizacao" placeholder="Filtrar" /></th>
                 <th>Cor<input class="filtro-coluna" data-campo="cor" placeholder="Filtrar" /></th>
                 <th>Perfil<input class="filtro-coluna" data-campo="perfil" placeholder="Filtrar" /></th>
-                <th>Situação<input class="filtro-coluna" data-campo="situacao" placeholder="Filtrar" /></th>
               </tr>
             </thead>
             <tbody id="corpoTabela">
@@ -286,13 +286,13 @@
 
     function valores(item) {
       return {
-        codigo:      item.COD_PRO ?? item.cod_pro ?? '',
+        codinterno:  item.COD_INTERNO ?? item.cod_interno ?? '',
         nome:        item.NOME_PRO ?? item.nome ?? '',
         estoque:     item.QUANT_ESTOQ ?? item.quant_estoq ?? '',
+        estbarra:    item.ESTOQUE_BARRA ?? item.estoque_barra ?? '',
         localizacao: item.LOCALIZACAO ?? item.localizacao ?? '',
         cor:         item.COR ?? item.cor ?? '',
-        perfil:      item.PERFIL ?? item.perfil ?? '',
-        situacao:    item.ATIVO_PRO ?? item.ativo ?? ''
+        perfil:      item.PERFIL ?? item.perfil ?? ''
       };
     }
 
@@ -349,13 +349,13 @@
           const v = valores(todosItens[indice]);
           return `
             <tr>
-              <td>${escapar(v.codigo)}</td>
+              <td>${escapar(v.codinterno)}</td>
               <td>${escapar(v.nome)}</td>
               <td>${escapar(v.estoque)}</td>
+              <td>${escapar(v.estbarra)}</td>
               <td>${escapar(v.localizacao)}</td>
               <td>${escapar(v.cor)}</td>
               <td>${escapar(v.perfil)}</td>
-              <td>${escapar(v.situacao)}</td>
             </tr>`;
         }).join('');
       }

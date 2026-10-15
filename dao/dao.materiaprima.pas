@@ -30,16 +30,15 @@ function TADRConnDAOMateriaPrima.List: TJSONArray;
 const
   LSelect =
     'SELECT '+
-    '  PRODUTO.COD_PRO, '+
-    '  PRODUTO.CODIGO_BARRA_PRO, '+
+    '  PRODUTO.COD_INTERNO, '+
     '  PRODUTO.NOME_PRO, '+
-    '  PRODUTO.DESC_CUPOM, '+
     '  PRODUTO.QUANT_ESTOQ, '+
+    '  PRODUTO.ESTOQUE_BARRA, '+
     '  PRODUTO.LOCALIZACAO, '+
     '  PRODUTO.COR, '+
-    '  PRODUTO.PERFIL, '+
-    '  PRODUTO.ATIVO_PRO '+
+    '  PRODUTO.PERFIL '+
     'FROM PRODUTO '+
+    'WHERE PRODUTO.ATIVO_PRO = ''S'' '+
     'ORDER BY PRODUTO.NOME_PRO';
 {$EndRegion}
 var
