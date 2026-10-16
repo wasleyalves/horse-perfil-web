@@ -115,8 +115,8 @@
     }
     .card-head h2 { font-size: 1.05rem; font-weight: 650; }
 
-    .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .busca { position: relative; flex: 1 1 240px; min-width: 200px; }
+    .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; flex: 1; }
+    .busca { position: relative; flex: 0 1 340px; min-width: 220px; }
     .busca input {
       width: 100%; padding: 10px 12px 10px 36px; border: 1px solid var(--border);
       border-radius: 10px; font: inherit; font-size: .9rem; background: #FBFCFE;
@@ -124,7 +124,21 @@
     }
     .busca input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(89, 183, 234, .18); background: #fff; }
     .busca::before { content: "\1F50D"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: .85rem; opacity: .45; pointer-events: none; }
-    .contador { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+    .colunas { position: relative; }
+    .colunas-painel {
+      position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+      box-shadow: var(--shadow); padding: 10px; min-width: 220px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .colunas-painel[hidden] { display: none; }
+    .colunas-painel small { color: var(--muted); font-size: .74rem; padding: 4px 8px 2px; text-transform: uppercase; letter-spacing: .06em; }
+    .colunas-item {
+      display: flex; align-items: center; gap: 8px; padding: 7px 8px;
+      border-radius: 8px; font-size: .88rem; cursor: pointer;
+    }
+    .colunas-item:hover { background: #F4F7FB; }
+    .colunas-item input { accent-color: var(--primary); width: 15px; height: 15px; }
 
     .tabela-wrapper { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; font-size: .9rem; }
@@ -235,19 +249,17 @@
             <div class="busca">
               <input type="search" id="buscaGeral" placeholder="Buscar em todas as colunas..." autocomplete="off" />
             </div>
-            <span class="contador" id="contador">Carregando...</span>
+            <div class="colunas">
+              <button class="btn ghost" id="btnColunas" type="button">Colunas</button>
+              <div class="colunas-painel" id="colunasPainel" hidden></div>
+            </div>
           </div>
         </div>
 
         <div class="tabela-wrapper">
           <table>
             <thead>
-              <tr>
-                <th>Perfil<input class="filtro-coluna" data-campo="perfil" placeholder="Filtrar" /></th>
-                <th>Descrição<input class="filtro-coluna" data-campo="descricao" placeholder="Filtrar" /></th>
-                <th>Códigos Mercado<input class="filtro-coluna" data-campo="mercado" placeholder="Filtrar" /></th>
-                <th>Figura<input class="filtro-coluna" data-campo="figura" placeholder="Filtrar" /></th>
-              </tr>
+              <tr id="linhaCabecalho"></tr>
             </thead>
             <tbody id="corpoTabela">
               <tr><td colspan="4" class="vazio">Carregando...</td></tr>
@@ -267,11 +279,21 @@
     const API_BASE = `${window.API_ORIGIN}/perfil`; // URL base da API Horse
 
     const corpoTabela = document.getElementById('corpoTabela');
+    const linhaCabecalho = document.getElementById('linhaCabecalho');
     const statusEl    = document.getElementById('status');
     const buscaGeral  = document.getElementById('buscaGeral');
-    const contador    = document.getElementById('contador');
-    const filtros     = document.querySelectorAll('.filtro-coluna');
+    const btnColunas  = document.getElementById('btnColunas');
+    const colunasPainel = document.getElementById('colunasPainel');
 
+    const COLUNAS = [
+      { campo: 'perfil',    label: 'Perfil' },
+      { campo: 'descricao', label: 'Descrição' },
+      { campo: 'mercado',   label: 'Códigos Mercado' },
+      { campo: 'figura',    label: 'Figura' }
+    ];
+
+    const colunasOcultas = new Set();
+    let filtros = [];
     let todosPerfis = []; // lista completa vinda da API
 
     // ===== Exibe mensagem temporária de erro =====
@@ -337,8 +359,6 @@
       });
 
       renderizarTabela(filtrados);
-      contador.textContent =
-        `${filtrados.length} de ${todosPerfis.length} registro(s)`;
     }
 
     // ===== Renderiza as linhas da tabela =====
@@ -367,12 +387,59 @@
           : `<span style="color:var(--muted)">—</span>`;
         return `
           <tr>
-            <td><a class="link-perfil" href="${url}">${escapar(v.perfil)}</a></td>
-            <td>${escapar(v.descricao)}</td>
-            <td>${escapar(v.mercado)}</td>
-            <td>${figura}</td>
+            <td data-coluna="perfil"><a class="link-perfil" href="${url}">${escapar(v.perfil)}</a></td>
+            <td data-coluna="descricao">${escapar(v.descricao)}</td>
+            <td data-coluna="mercado">${escapar(v.mercado)}</td>
+            <td data-coluna="figura">${figura}</td>
           </tr>`;
       }).join('');
+      aplicarVisibilidade();
+    }
+
+    function montarCabecalho() {
+      linhaCabecalho.innerHTML = COLUNAS.map((c) =>
+        `<th data-coluna="${c.campo}">${escapar(c.label)}` +
+        `<input class="filtro-coluna" data-campo="${c.campo}" placeholder="Filtrar" /></th>`
+      ).join('');
+      filtros = document.querySelectorAll('.filtro-coluna');
+      filtros.forEach((f) => f.addEventListener('input', aplicarFiltros));
+    }
+
+    function aplicarVisibilidade() {
+      document.querySelectorAll('[data-coluna]').forEach((el) => {
+        el.style.display = colunasOcultas.has(el.dataset.coluna) ? 'none' : '';
+      });
+    }
+
+    function carregarColunas() {
+      try {
+        const salvo = JSON.parse(localStorage.getItem('idx_colunas_ocultas') || '[]');
+        if (Array.isArray(salvo)) salvo.forEach((campo) => colunasOcultas.add(campo));
+      } catch (e) { }
+    }
+
+    function salvarColunas() {
+      try {
+        localStorage.setItem('idx_colunas_ocultas', JSON.stringify([...colunasOcultas]));
+      } catch (e) { }
+    }
+
+    function montarPainelColunas() {
+      colunasPainel.innerHTML =
+        '<small>Colunas visíveis</small>' +
+        COLUNAS.map((c) =>
+          `<label class="colunas-item">` +
+          `<input type="checkbox" data-campo="${c.campo}"${colunasOcultas.has(c.campo) ? '' : ' checked'} />` +
+          `${escapar(c.label)}</label>`
+        ).join('');
+      colunasPainel.querySelectorAll('input[type="checkbox"]').forEach((chk) => {
+        chk.addEventListener('change', () => {
+          if (chk.checked) colunasOcultas.delete(chk.dataset.campo);
+          else colunasOcultas.add(chk.dataset.campo);
+          salvarColunas();
+          aplicarVisibilidade();
+        });
+      });
     }
 
     // ===== GET: lista todos os perfis =====
@@ -402,15 +469,24 @@
       } catch (erro) {
         corpoTabela.innerHTML =
           `<tr><td colspan="4" class="vazio">Falha ao carregar: ${escapar(erro.message)}</td></tr>`;
-        contador.textContent = '';
         mostrarErro('Não foi possível conectar à API.');
       }
     }
 
     // ===== Eventos: refiltrar conforme digita =====
     buscaGeral.addEventListener('input', aplicarFiltros);
-    filtros.forEach((f) => f.addEventListener('input', aplicarFiltros));
     document.getElementById('btnRecarregar').addEventListener('click', carregarPerfis);
+
+    btnColunas.addEventListener('click', () => {
+      colunasPainel.hidden = !colunasPainel.hidden;
+    });
+    document.addEventListener('click', (ev) => {
+      if (!colunasPainel.hidden && !ev.target.closest('.colunas')) colunasPainel.hidden = true;
+    });
+
+    carregarColunas();
+    montarCabecalho();
+    montarPainelColunas();
 
     // ===== Carga inicial =====
     carregarPerfis();
